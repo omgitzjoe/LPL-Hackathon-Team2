@@ -20,6 +20,7 @@ from backend.lambda_handler import (
     generate_draft_handler,
     list_audit_log_handler,
     list_clients_handler,
+    revise_draft_handler,
 )
 
 app = FastAPI(title="LPL Delegation Mock Gate")
@@ -37,6 +38,11 @@ class GenerateDraftRequest(BaseModel):
     client_id: str
     request_prompt: str
     advisor: str = "Unknown Advisor"
+
+
+class ReviseDraftRequest(BaseModel):
+    request_id: str
+    feedback: str
 
 
 class ApproveRequest(BaseModel):
@@ -58,6 +64,14 @@ def clients():
 def generate_draft(req: GenerateDraftRequest):
     try:
         return generate_draft_handler(req.model_dump())
+    except HandlerError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@app.post("/revise-draft")
+def revise_draft(req: ReviseDraftRequest):
+    try:
+        return revise_draft_handler(req.model_dump())
     except HandlerError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

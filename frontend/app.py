@@ -41,6 +41,16 @@ def submit_delegation_request(client_id: str, request_prompt: str, advisor: str)
     return resp.json()
 
 
+def request_revision(request_id: str, feedback: str) -> dict:
+    resp = requests.post(
+        f"{BACKEND_URL}/revise-draft",
+        json={"request_id": request_id, "feedback": feedback},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
 def approve_and_execute(request_id: str, advisor: str) -> dict:
     resp = requests.post(
         f"{BACKEND_URL}/approve",
@@ -114,11 +124,13 @@ def main():
         req = st.session_state.active_request
         if req:
             st.divider()
-            st.subheader("2️⃣ Review draft")
+            revision_count = req.get("revision_count", 0)
+            revision_label = f"  (Revision #{revision_count})" if revision_count > 0 else ""
+            st.subheader(f"2️⃣ Review draft{revision_label}")
             st.info(f"**Status:** `{req['status']}`  •  Request ID: `{req['request_id']}`  •  Client: {req['client_name']}")
             st.text_area("Draft document", value=req["draft"], height=320, key="draft_area")
 
-            colA, colB = st.columns(2)
+            colA, colB, colC = st.columns(3)
             with colA:
                 if st.button("✅ Approve & Execute", type="primary"):
                     try:
@@ -128,9 +140,35 @@ def main():
                     except requests.RequestException as e:
                         st.error(f"❌ Error approving request: {e}")
             with colB:
+                if st.button("✏️ Request Revision"):
+                    st.session_state.show_revision = True
+            with colC:
                 if st.button("🔄 Discard draft"):
                     st.session_state.active_request = None
+                    st.session_state.pop("show_revision", None)
                     st.rerun()
+
+            if st.session_state.get("show_revision"):
+                st.divider()
+                st.subheader("✏️ Request Revision")
+                feedback = st.text_area(
+                    "What should be changed?",
+                    placeholder="e.g. Make the tone more conservative, add a section on tax implications, shorten the intro...",
+                    height=100,
+                    key="revision_feedback",
+                )
+                if st.button("📤 Submit Revision Request", type="primary"):
+                    if not feedback.strip():
+                        st.warning("Please provide feedback describing what to change.")
+                    else:
+                        with st.spinner("Revising draft via Amazon Bedrock..."):
+                            try:
+                                revised = request_revision(req["request_id"], feedback)
+                                st.session_state.active_request = revised
+                                st.session_state.pop("show_revision", None)
+                                st.rerun()
+                            except requests.RequestException as e:
+                                st.error(f"❌ Error revising draft: {e}")
 
         if st.session_state.just_approved:
             approval = st.session_state.just_approved

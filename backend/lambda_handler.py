@@ -58,6 +58,43 @@ def generate_draft_handler(payload: dict) -> dict:
     }
 
 
+def revise_draft_handler(payload: dict) -> dict:
+    """
+    Advisor requests a revision: re-invoke Bedrock with the original prompt
+    plus the advisor's feedback, then update the stored draft.
+    """
+    request_id = payload.get("request_id")
+    feedback = payload.get("feedback", "")
+
+    if not request_id or not feedback:
+        raise HandlerError(400, "request_id and feedback are required")
+
+    record = state_store.get_request(request_id)
+    if record is None:
+        raise HandlerError(404, f"No request found for request_id={request_id}")
+    if record["status"] != "PENDING_APPROVAL":
+        raise HandlerError(400, f"Request {request_id} is not in PENDING_APPROVAL state")
+
+    client_profile = mock_clients.get_client(record["client_id"])
+    revision_prompt = (
+        f"{record['request_prompt']}\n\n"
+        f"--- Previous draft ---\n{record['draft']}\n\n"
+        f"--- Advisor feedback ---\n{feedback}\n\n"
+        f"Please revise the draft to address the advisor's feedback."
+    )
+    new_draft = _draft_generator.generate_draft(client_profile, revision_prompt)
+
+    updated = state_store.revise_request(request_id, new_draft, feedback)
+
+    return {
+        "request_id": request_id,
+        "status": updated["status"],
+        "client_name": updated["client_name"],
+        "draft": updated["draft"],
+        "revision_count": updated.get("revision_count", 1),
+    }
+
+
 def approve_handler(payload: dict) -> dict:
     """
     Step 7: Advisor reviews draft and clicks [APPROVE & EXECUTE].

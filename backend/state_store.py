@@ -66,6 +66,21 @@ def get_request(request_id: str) -> dict | None:
         return _requests.get(request_id)
 
 
+def revise_request(request_id: str, new_draft: str, revision_feedback: str) -> dict | None:
+    """Update a PENDING_APPROVAL request with a revised draft."""
+    with _lock:
+        record = _requests.get(request_id)
+        if record is None:
+            return None
+        if record["status"] != "PENDING_APPROVAL":
+            return None
+        record["revision_count"] = record.get("revision_count", 0) + 1
+        record["draft"] = new_draft
+        record["last_revision_feedback"] = revision_feedback
+        record["revised_at"] = _now()
+    return record
+
+
 def approve_request(request_id: str, advisor: str) -> dict | None:
     """Mark a request APPROVED and append an immutable audit log entry."""
     with _lock:
