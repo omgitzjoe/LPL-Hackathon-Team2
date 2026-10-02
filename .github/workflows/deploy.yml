@@ -54,6 +54,13 @@ jobs:
           yum update -y
           yum install -y git python3.11 python3.11-pip
 
+          # Setup SSH access for quick manual updates
+          mkdir -p /home/ec2-user/.ssh
+          echo '${{ secrets.SSH_PUBLIC_KEY }}' >> /home/ec2-user/.ssh/authorized_keys
+          chmod 700 /home/ec2-user/.ssh
+          chmod 600 /home/ec2-user/.ssh/authorized_keys
+          chown -R ec2-user:ec2-user /home/ec2-user/.ssh
+
           # Setup app
           cd /home/ec2-user
           git clone https://github.com/omgitzjoe/LPL-Hackathon-Team2.git app
@@ -61,12 +68,9 @@ jobs:
           git checkout ${{ github.sha }}
           python3.11 -m pip install -r requirements.txt
 
-          # Start backend
-          python3.11 -m uvicorn backend.server:app --host 0.0.0.0 --port 8000 &
-          sleep 15
-
-          # Start frontend
-          BACKEND_URL=http://localhost:8000 python3.11 -m streamlit run frontend/app.py --server.port 8080 --server.address 0.0.0.0 --server.headless true &
+          # Start services
+          chown -R ec2-user:ec2-user /home/ec2-user/app
+          sudo -u ec2-user bash -c 'cd /home/ec2-user/app && bash start.sh'
 
           echo "DEPLOYMENT COMPLETE - Commit: ${{ steps.commit.outputs.sha_short }}"
           EOF
