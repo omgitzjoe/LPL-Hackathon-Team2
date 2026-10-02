@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 LPL Delegation Assistant is a human-in-the-loop drafting workflow for LPL
 Financial advisors, built for an AWS hackathon. An advisor delegates a
 drafting task in plain language; the system looks up mock client data,
-drafts a compliant document via Amazon Bedrock (Claude 3.5 Sonnet), holds it
+drafts a compliant document via Amazon Bedrock (Claude Opus 4.1), holds it
 in a `PENDING_APPROVAL` state, and only logs/executes the action once the
 advisor clicks **Approve & Execute**.
 
@@ -20,7 +20,7 @@ Frontend (Streamlit) sends prompt + client_id
     ↓
 Backend "Mock Gate" (Lambda Function URL locally run as FastAPI)
     ↓ fetch mock client profile (hardcoded dict)
-    ↓ generate draft via Bedrock (Claude 3.5 Sonnet) + compliance guardrails
+    ↓ generate draft via Bedrock (Claude Opus 4.1) + compliance guardrails
     ↓ save state PENDING_APPROVAL
     ↓
 Frontend displays draft to advisor
@@ -66,7 +66,7 @@ cd infra && ./setup.sh
 
 Config lives in `backend/bedrock_client.py:Config`:
 - `BEDROCK_MOCK_MODE` — `true` (default) uses a deterministic offline draft generator, no AWS needed
-- `BEDROCK_MODEL_ID` — Claude model ID (default `anthropic.claude-3-5-sonnet-20241022-v2:0`)
+- `BEDROCK_MODEL_ID` — Claude model ID (default `anthropic.claude-opus-4-1-20250805-v1:0`)
 - `AWS_REGION` — Bedrock region (default `us-east-1`)
 
 Frontend reads `BACKEND_URL` (default `http://localhost:8000`) to reach the backend.
@@ -74,7 +74,7 @@ Frontend reads `BACKEND_URL` (default `http://localhost:8000`) to reach the back
 ## AWS Services
 
 **Bedrock:**
-- Model: `anthropic.claude-3-5-sonnet-20241022-v2:0`
+- Model: `anthropic.claude-opus-4-1-20250805-v1:0`
 - Requires: Model access enabled in Bedrock console (see AWS_SETUP.md)
 - IAM permission needed: `bedrock:InvokeModel`
 

@@ -2,7 +2,7 @@
 
 **AI-assisted drafting with human-in-the-loop approval, for LPL Financial advisors**
 
-Built for the AWS Financial Services Hackathon using Amazon Bedrock (Claude 3.5 Sonnet).
+Built for the AWS Financial Services Hackathon using Amazon Bedrock (Claude Opus 4.1).
 
 ---
 
@@ -12,7 +12,7 @@ An advisor (or their assistant) delegates a drafting task in plain language —
 *"Draft a portfolio review for Jane Doe"* — and the system:
 
 1. Looks up the client's profile and holdings
-2. Generates a compliant draft document via Amazon Bedrock (Claude 3.5 Sonnet)
+2. Generates a compliant draft document via Amazon Bedrock (Claude Opus 4.1)
 3. Holds the draft in a **`PENDING_APPROVAL`** state
 4. Shows the draft to the advisor for review
 5. On **Approve & Execute**, logs the action to an audit trail
@@ -40,7 +40,7 @@ No draft is ever sent to a client without an advisor explicitly approving it.
          │ 3. Fetches mock LPL client profile data from hardcoded dictionary
          ▼
 ┌────────────────────────────────────────────────────────┐
-│ 🧠 Amazon Bedrock (Claude 3.5 Sonnet)                   │
+│ 🧠 Amazon Bedrock (Claude Opus 4.1)                   │
 └────────┬───────────────────────────────────────────────┘
          │ 4. Generates the draft document & applies LPL compliance guardrails
          ▼
@@ -66,7 +66,7 @@ No draft is ever sent to a client without an advisor explicitly approving it.
 
 **Tech Stack:**
 
-- **LLM:** AWS Bedrock (Claude 3.5 Sonnet)
+- **LLM:** AWS Bedrock (Claude Opus 4.1)
 - **Mock Gate:** AWS Lambda (Function URL) — run locally as a FastAPI server for development
 - **Frontend:** Streamlit advisor dashboard
 - **Client data:** Hardcoded mock dictionary (stands in for LPL's CRM/portfolio APIs)
@@ -83,7 +83,7 @@ lpl-delegation-assistant/
 ├── backend/
 │   ├── server.py              # FastAPI app — local stand-in for the Lambda "Mock Gate"
 │   ├── lambda_handler.py      # Core handler logic (steps 3-5, 7-8), framework-agnostic
-│   ├── bedrock_client.py      # Bedrock Claude 3.5 Sonnet wrapper + compliance guardrails (step 4)
+│   ├── bedrock_client.py      # Bedrock Claude Opus 4.1 wrapper + compliance guardrails (step 4)
 │   ├── mock_clients.py        # Hardcoded LPL client profile dictionary (step 3)
 │   └── state_store.py         # PENDING_APPROVAL/APPROVED state + audit log (steps 5, 8)
 ├── infra/
@@ -135,12 +135,12 @@ Open **http://localhost:8501**.
 
 ## 🧠 Using Real Amazon Bedrock
 
-1. Enable Claude 3.5 Sonnet model access (see [AWS_SETUP.md](AWS_SETUP.md))
+1. Enable Claude Opus 4.1 model access (see [AWS_SETUP.md](AWS_SETUP.md))
 2. Set environment variables before starting the backend:
    ```bash
    export BEDROCK_MOCK_MODE=false
    export AWS_REGION=us-east-1
-   export BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+   export BEDROCK_MODEL_ID=anthropic.claude-opus-4-1-20250805-v1:0
    uvicorn backend.server:app --reload --port 8000
    ```
 3. Ensure your AWS credentials have `bedrock:InvokeModel` permission:
@@ -186,7 +186,7 @@ Nothing is sent to a client without a human advisor explicitly clicking
 
 For typical hackathon usage (dozens of draft generations):
 
-- **Bedrock (Claude 3.5 Sonnet):** ~$3-5
+- **Bedrock (Claude Opus 4.1):** ~$3-5
 - **Lambda Function URL:** Free tier covers hackathon usage
 
 **Total:** <$10 for 2 days

@@ -20,7 +20,7 @@ https://console.aws.amazon.com/bedrock/
 Click **"Manage model access"** or **"Edit"**
 
 **Enable this model:**
-- ✅ **Claude 3.5 Sonnet v2** (`anthropic.claude-3-5-sonnet-20241022-v2:0`)
+- ✅ **Claude Opus 4.1** (`anthropic.claude-opus-4-1-20250805-v1:0`)
 
 ### 4. Submit Request
 - Check the box for the model
@@ -53,7 +53,7 @@ Enter:
 aws bedrock list-foundation-models --region us-east-1
 
 aws bedrock-runtime invoke-model \
-  --model-id anthropic.claude-3-5-sonnet-20241022-v2:0 \
+  --model-id anthropic.claude-opus-4-1-20250805-v1:0 \
   --region us-east-1 \
   --body '{"anthropic_version":"bedrock-2023-05-31","max_tokens":100,"messages":[{"role":"user","content":"Hello"}]}' \
   /tmp/response.json
@@ -90,7 +90,7 @@ permissions to create Lambda functions, IAM roles, and CloudFormation stacks
 
 **Recommended Region: us-east-1 (N. Virginia)**
 
-Claude 3.5 Sonnet is available in:
+Claude Opus 4.1 is available in:
 - us-east-1 (N. Virginia)
 - us-west-2 (Oregon)
 - eu-west-1 (Ireland)
@@ -106,7 +106,7 @@ using a different region.
 → Enable model access in Bedrock console (Step 1)
 
 ### "ValidationException: The provided model identifier is invalid"
-→ Check model ID matches exactly: `anthropic.claude-3-5-sonnet-20241022-v2:0`
+→ Check model ID matches exactly: `anthropic.claude-opus-4-1-20250805-v1:0`
 
 ### "ThrottlingException: Rate exceeded"
 → Bedrock has usage quotas. For hackathon, request a quota increase via
@@ -119,7 +119,7 @@ Service Quotas → AWS Bedrock, or continue after a cooldown period.
 2. Set up a billing alarm (e.g., $25 threshold)
 
 ### Cost Estimates
-- Claude 3.5 Sonnet: $3 per million input tokens, $15 per million output tokens
+- Claude Opus 4.1: $15 per million input tokens, $75 per million output tokens
 - Lambda Function URL: Free tier covers hackathon usage
 
 **Hackathon estimate:** <$10 total for dozens of draft generations
