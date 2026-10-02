@@ -38,7 +38,8 @@ def _init_dynamo():
     try:
         import boto3
         _dynamo = boto3.resource("dynamodb", region_name=AWS_REGION)
-        _dynamo.Table(REQUESTS_TABLE).table_status
+        # Use GetItem (always permitted) instead of DescribeTable to verify connectivity
+        _dynamo.Table(REQUESTS_TABLE).get_item(Key={"request_id": "__ping__"})
         _use_dynamo = True
     except Exception:
         _dynamo = None

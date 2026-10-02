@@ -53,7 +53,8 @@ class ApproveRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    from backend.state_store import _use_dynamo
+    return {"status": "ok", "dynamo": _use_dynamo}
 
 
 @app.get("/clients")
