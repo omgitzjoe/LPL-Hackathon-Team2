@@ -18,6 +18,7 @@ from backend.lambda_handler import (
     HandlerError,
     approve_handler,
     generate_draft_handler,
+    get_client_handler,
     list_audit_log_handler,
     list_clients_handler,
     revise_draft_handler,
@@ -58,6 +59,14 @@ def health():
 @app.get("/clients")
 def clients():
     return list_clients_handler()
+
+
+@app.get("/clients/{client_id}")
+def client_detail(client_id: str):
+    try:
+        return get_client_handler(client_id)
+    except HandlerError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
 @app.post("/generate-draft")

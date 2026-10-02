@@ -122,5 +122,12 @@ def list_clients_handler() -> dict:
     return {"clients": mock_clients.list_clients()}
 
 
+def get_client_handler(client_id: str) -> dict:
+    client = mock_clients.get_client(client_id)
+    if client is None:
+        raise HandlerError(404, f"No client found for client_id={client_id}")
+    return {"client": client}
+
+
 def list_audit_log_handler() -> dict:
     return {"audit_log": state_store.list_audit_log()}
