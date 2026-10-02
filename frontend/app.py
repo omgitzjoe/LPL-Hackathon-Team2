@@ -15,7 +15,7 @@ import streamlit as st
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
-st.set_page_config(page_title="LPL Delegation Assistant", page_icon="👔", layout="wide")
+st.set_page_config(page_title="LPL Delegation Assistant | AI-Powered", page_icon="👔", layout="wide")
 
 
 @st.cache_data(ttl=30)
