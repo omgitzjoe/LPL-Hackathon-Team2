@@ -65,7 +65,7 @@ jobs:
           cd /home/ec2-user
           git clone https://github.com/omgitzjoe/LPL-Hackathon-Team2.git app
           cd app
-          git checkout ${{ github.sha }}
+          git checkout main
           python3.11 -m pip install -r requirements.txt
 
           # Start services
