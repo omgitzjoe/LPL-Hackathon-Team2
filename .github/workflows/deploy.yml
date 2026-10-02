@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -44,22 +44,13 @@ jobs:
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Create user data script
-        env:
-          SSH_PUB_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
-          GIT_SHA: ${{ github.sha }}
-          SHA_SHORT: ${{ steps.commit.outputs.sha_short }}
         run: |
-          cat > /tmp/user-data.sh <<USERDATA
+          cat > /tmp/user-data.sh <<'EOF'
           #!/bin/bash
           exec > /var/log/user-data.log 2>&1
           set -x
           yum update -y
           yum install -y git python3.11 python3.11-pip
-          mkdir -p /home/ec2-user/.ssh
-          echo "${SSH_PUB_KEY}" >> /home/ec2-user/.ssh/authorized_keys
-          chmod 700 /home/ec2-user/.ssh
-          chmod 600 /home/ec2-user/.ssh/authorized_keys
-          chown -R ec2-user:ec2-user /home/ec2-user/.ssh
           cd /home/ec2-user
           git clone https://github.com/omgitzjoe/LPL-Hackathon-Team2.git app
           cd app
@@ -67,8 +58,8 @@ jobs:
           python3.11 -m pip install -r requirements.txt
           chown -R ec2-user:ec2-user /home/ec2-user/app
           sudo -u ec2-user bash -c 'cd /home/ec2-user/app && bash start.sh'
-          echo "DEPLOYMENT COMPLETE - Commit: ${SHA_SHORT}"
-          USERDATA
+          echo "DEPLOYMENT COMPLETE"
+          EOF
           sed -i 's/^          //' /tmp/user-data.sh
 
       - name: Launch new instance
@@ -87,42 +78,38 @@ jobs:
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
           echo "Launched instance: $INSTANCE_ID"
 
-          # Wait for instance to be running
           aws ec2 wait instance-running --instance-ids $INSTANCE_ID
 
-          # Get public IP
-          PUBLIC_IP=$(aws ec2 describe-instances \
-            --instance-ids $INSTANCE_ID \
-            --query 'Reservations[0].Instances[0].PublicIpAddress' \
-            --output text)
+          # Attach the permanent Elastic IP
+          aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id eipalloc-0902d44a203e5abda
+          PUBLIC_IP="98.89.13.40"
 
           echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
-          echo "Public IP: $PUBLIC_IP"
+          echo "Public IP: $PUBLIC_IP (Elastic IP)"
 
       - name: Wait for application startup
         run: |
           echo "Waiting 4 minutes for application to start..."
           sleep 240
 
-          # Test the application
           for i in {1..5}; do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ steps.launch.outputs.public_ip }}:8080)
             if [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Application is responding!"
+              echo "Application is responding!"
               exit 0
             fi
             echo "Attempt $i: HTTP $HTTP_CODE - waiting 30s..."
             sleep 30
           done
 
-          echo "⚠️ Application not responding after 5 attempts"
+          echo "Application not responding after 5 attempts"
           exit 1
 
       - name: Deployment summary
         if: success()
         run: |
           echo "================================================"
-          echo "🚀 DEPLOYMENT SUCCESSFUL"
+          echo "DEPLOYMENT SUCCESSFUL"
           echo "================================================"
           echo "Instance ID: ${{ steps.launch.outputs.instance_id }}"
           echo "Public URL: http://${{ steps.launch.outputs.public_ip }}:8080"
