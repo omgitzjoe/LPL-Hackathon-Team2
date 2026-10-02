@@ -44,36 +44,32 @@ jobs:
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Create user data script
+        env:
+          SSH_PUB_KEY: ${{ secrets.SSH_PUBLIC_KEY }}
+          GIT_SHA: ${{ github.sha }}
+          SHA_SHORT: ${{ steps.commit.outputs.sha_short }}
         run: |
-          cat > /tmp/user-data.sh << 'EOF'
+          cat > /tmp/user-data.sh <<USERDATA
           #!/bin/bash
           exec > /var/log/user-data.log 2>&1
           set -x
-
-          # Install packages
           yum update -y
           yum install -y git python3.11 python3.11-pip
-
-          # Setup SSH access for quick manual updates
           mkdir -p /home/ec2-user/.ssh
-          echo '${{ secrets.SSH_PUBLIC_KEY }}' >> /home/ec2-user/.ssh/authorized_keys
+          echo "${SSH_PUB_KEY}" >> /home/ec2-user/.ssh/authorized_keys
           chmod 700 /home/ec2-user/.ssh
           chmod 600 /home/ec2-user/.ssh/authorized_keys
           chown -R ec2-user:ec2-user /home/ec2-user/.ssh
-
-          # Setup app
           cd /home/ec2-user
           git clone https://github.com/omgitzjoe/LPL-Hackathon-Team2.git app
           cd app
           git checkout main
           python3.11 -m pip install -r requirements.txt
-
-          # Start services
           chown -R ec2-user:ec2-user /home/ec2-user/app
           sudo -u ec2-user bash -c 'cd /home/ec2-user/app && bash start.sh'
-
-          echo "DEPLOYMENT COMPLETE - Commit: ${{ steps.commit.outputs.sha_short }}"
-          EOF
+          echo "DEPLOYMENT COMPLETE - Commit: ${SHA_SHORT}"
+          USERDATA
+          sed -i 's/^          //' /tmp/user-data.sh
 
       - name: Launch new instance
         id: launch
