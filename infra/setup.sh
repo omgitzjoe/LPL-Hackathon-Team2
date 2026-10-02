@@ -1,39 +1,36 @@
 #!/bin/bash
-# Quick setup script for AWS infrastructure
+# Deploy the Lambda Function URL (Mock Gate) infrastructure using AWS SAM.
+#
+# Requires: AWS SAM CLI (https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
+#           AWS CLI configured with credentials that can create Lambda/IAM resources
+#           Bedrock model access enabled for the chosen model (see ../AWS_SETUP.md)
 
-STACK_NAME="lpl-ai-assistant"
+set -e
+
+STACK_NAME="lpl-delegation-assistant"
 REGION="${AWS_REGION:-us-east-1}"
 
-echo "🚀 Deploying LPL AI Assistant Infrastructure..."
+echo "🚀 Building and deploying LPL Delegation Assistant backend..."
 echo "Region: $REGION"
 echo ""
 
-# Deploy CloudFormation
-aws cloudformation create-stack \
-  --stack-name $STACK_NAME \
-  --template-body file://cloudformation.yaml \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region $REGION
+sam build --template-file template.yaml
 
-echo "⏳ Waiting for stack creation (this may take 5-10 minutes)..."
-aws cloudformation wait stack-create-complete \
-  --stack-name $STACK_NAME \
-  --region $REGION
+sam deploy \
+  --stack-name "$STACK_NAME" \
+  --region "$REGION" \
+  --capabilities CAPABILITY_IAM \
+  --resolve-s3 \
+  --no-confirm-changeset
 
-if [ $? -eq 0 ]; then
-  echo ""
-  echo "✅ Infrastructure deployed successfully!"
-  echo ""
-  echo "📋 Getting outputs..."
-  aws cloudformation describe-stacks \
-    --stack-name $STACK_NAME \
-    --region $REGION \
-    --query 'Stacks[0].Outputs' \
-    --output table
-  
-  echo ""
-  echo "💡 Update your .env file with these values"
-else
-  echo "❌ Stack creation failed"
-  exit 1
-fi
+echo ""
+echo "✅ Deployed. Fetching Function URL..."
+aws cloudformation describe-stacks \
+  --stack-name "$STACK_NAME" \
+  --region "$REGION" \
+  --query 'Stacks[0].Outputs' \
+  --output table
+
+echo ""
+echo "💡 Set BACKEND_URL to the FunctionUrl above and re-run the Streamlit frontend:"
+echo "   BACKEND_URL=https://xxxx.lambda-url.$REGION.on.aws/ streamlit run frontend/app.py"

@@ -15,7 +15,8 @@ venv/
 .idea/
 .vscode/
 *.log
-data/sample-docs/*
-!data/sample-docs/.gitkeep
+data/audit_log.json
+!data/.gitkeep
 .streamlit/
 vector_store/
+.aws-sam/

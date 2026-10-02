@@ -1,8 +1,9 @@
 # 🔧 AWS Account Setup
 
-## Prerequisites
-
-Before running the application, you need to enable AWS Bedrock model access.
+> **Not required for the local mock demo.** The app runs fully offline with
+> `BEDROCK_MOCK_MODE=true` (the default). Only follow this guide when you're
+> ready to generate drafts with real Amazon Bedrock, or deploy the Lambda
+> Mock Gate to AWS.
 
 ## Step 1: Enable Bedrock Model Access
 
@@ -18,22 +19,16 @@ https://console.aws.amazon.com/bedrock/
 ### 3. Request Model Access
 Click **"Manage model access"** or **"Edit"**
 
-**Enable these models:**
-- ✅ **Claude 3.5 Sonnet v2** (anthropic.claude-3-5-sonnet-20241022-v2:0)
-- ✅ **Titan Embeddings G1 - Text v2** (amazon.titan-embed-text-v2:0)
-
-Optional (for experimentation):
-- Claude 3 Haiku (faster, cheaper alternative)
-- Claude 3 Opus (most capable, slower)
+**Enable this model:**
+- ✅ **Claude 3.5 Sonnet v2** (`anthropic.claude-3-5-sonnet-20241022-v2:0`)
 
 ### 4. Submit Request
-- Check the boxes for the models
+- Check the box for the model
 - Click **"Request model access"** or **"Save changes"**
 - Wait 1-2 minutes for approval (usually instant)
 
 ### 5. Verify Access
 - Status should show **"Access granted"** with a green checkmark
-- If pending, wait a few minutes and refresh
 
 ## Step 2: Configure AWS CLI
 
@@ -42,8 +37,6 @@ Optional (for experimentation):
 aws sts get-caller-identity
 ```
 
-Should return your AWS account ID, user ARN, etc.
-
 ### If Not Configured
 ```bash
 aws configure
@@ -51,16 +44,14 @@ aws configure
 
 Enter:
 - AWS Access Key ID
-- AWS Secret Access Key  
+- AWS Secret Access Key
 - Default region: `us-east-1` (recommended for Bedrock)
 - Output format: `json`
 
 ### Test Bedrock Access
 ```bash
-# List available models
 aws bedrock list-foundation-models --region us-east-1
 
-# Test Claude invocation
 aws bedrock-runtime invoke-model \
   --model-id anthropic.claude-3-5-sonnet-20241022-v2:0 \
   --region us-east-1 \
@@ -72,7 +63,7 @@ cat /tmp/response.json
 
 ## Step 3: IAM Permissions
 
-Your AWS user/role needs these permissions:
+For running the backend locally against real Bedrock, your user/role needs:
 
 ```json
 {
@@ -86,35 +77,14 @@ Your AWS user/role needs these permissions:
         "bedrock:ListFoundationModels"
       ],
       "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "aoss:*"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:ListBucket"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "cloudformation:*"
-      ],
-      "Resource": "*"
     }
   ]
 }
 ```
 
-For hackathon purposes, you can use an admin user with **AdministratorAccess**.
+For deploying the Lambda Mock Gate via `infra/setup.sh`, your user/role also needs
+permissions to create Lambda functions, IAM roles, and CloudFormation stacks
+(an admin user is simplest for hackathon purposes).
 
 ## Step 4: Region Considerations
 
@@ -127,11 +97,8 @@ Claude 3.5 Sonnet is available in:
 - ap-southeast-1 (Singapore)
 - ap-northeast-1 (Tokyo)
 
-Update `rag_engine.py` Config if using a different region:
-```python
-AWS_REGION = "us-east-1"
-BEDROCK_REGION = "us-east-1"
-```
+Update `AWS_REGION` / `BEDROCK_MODEL_ID` in your `.env` (see `.env.example`) if
+using a different region.
 
 ## Troubleshooting
 
@@ -139,44 +106,23 @@ BEDROCK_REGION = "us-east-1"
 → Enable model access in Bedrock console (Step 1)
 
 ### "ValidationException: The provided model identifier is invalid"
-→ Check model ID matches exactly:
-```
-anthropic.claude-3-5-sonnet-20241022-v2:0
-```
+→ Check model ID matches exactly: `anthropic.claude-3-5-sonnet-20241022-v2:0`
 
 ### "ThrottlingException: Rate exceeded"
-→ Bedrock has usage quotas. For hackathon, request quota increase:
-- Console: Service Quotas → AWS Bedrock
-- Or continue after cooldown period
-
-### "ServiceQuotaExceededException"
-→ Request quota increase in Service Quotas console
+→ Bedrock has usage quotas. For hackathon, request a quota increase via
+Service Quotas → AWS Bedrock, or continue after a cooldown period.
 
 ## Cost Management
 
 ### Set Billing Alert
 1. Go to AWS Billing Dashboard
-2. Set up a billing alarm (e.g., $50 threshold)
-3. You'll receive email if costs exceed threshold
-
-### Monitor Usage
-```bash
-# Check Bedrock usage (CloudWatch)
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/Bedrock \
-  --metric-name Invocations \
-  --start-time 2024-01-01T00:00:00Z \
-  --end-time 2024-12-31T23:59:59Z \
-  --period 86400 \
-  --statistics Sum
-```
+2. Set up a billing alarm (e.g., $25 threshold)
 
 ### Cost Estimates
 - Claude 3.5 Sonnet: $3 per million input tokens, $15 per million output tokens
-- Titan Embeddings: $0.10 per million tokens
-- OpenSearch Serverless: $0.24/OCU-hour (free tier: 4 OCU-hours/day)
+- Lambda Function URL: Free tier covers hackathon usage
 
-**Hackathon estimate:** $10-15 total for 100 queries
+**Hackathon estimate:** <$10 total for dozens of draft generations
 
 ## Ready to Deploy!
 
@@ -186,4 +132,5 @@ cd infra
 ./setup.sh
 ```
 
-Then follow QUICKSTART.md to complete setup.
+Then follow [QUICKSTART.md](QUICKSTART.md) to point the frontend at the
+deployed Lambda Function URL.
