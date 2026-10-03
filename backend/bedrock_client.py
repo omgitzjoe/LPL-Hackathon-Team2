@@ -46,9 +46,7 @@ def _build_user_message(client_profile: dict, request_prompt: str) -> str:
         f"  - {h['symbol']} ({h['name']}): {h['allocation_pct']}%"
         for h in client_profile.get("holdings", [])
     )
-    return f"""Advisor request: {request_prompt}
-
-Client profile:
+    return f"""Client profile:
   Name: {client_profile['name']}
   Risk profile: {client_profile['risk_profile']}
   Portfolio value: ${client_profile['portfolio_value']:,.2f}
@@ -58,7 +56,9 @@ Client profile:
   Current holdings:
 {holdings}
 
-Draft the requested document now, following all compliance guardrails.
+ADVISOR REQUEST: {request_prompt}
+
+Follow the advisor's request exactly. Apply compliance guardrails but prioritize the advisor's specific instructions on format, length, tone, and content.
 """
 
 
