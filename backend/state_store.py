@@ -220,6 +220,7 @@ def approve_request(request_id: str, advisor: str) -> dict | None:
             "advisor": advisor,
             "action": "APPROVE_AND_EXECUTE",
             "request_prompt": record["request_prompt"],
+            "draft": record["draft"],
             "timestamp": approved_at,
         }
         audit_table = _dynamo.Table(AUDIT_TABLE)
@@ -242,6 +243,7 @@ def approve_request(request_id: str, advisor: str) -> dict | None:
                 "advisor": advisor,
                 "action": "APPROVE_AND_EXECUTE",
                 "request_prompt": record["request_prompt"],
+                "draft": record["draft"],
                 "timestamp": approved_at,
             }
             entries = _load_audit_log_file()

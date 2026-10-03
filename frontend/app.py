@@ -107,20 +107,19 @@ def render_audit_log():
         return
 
     st.metric("Approved actions", len(entries))
-    st.dataframe(
-        [
-            {
-                "Timestamp": e["timestamp"],
-                "Request ID": e["request_id"],
-                "Client": e["client_name"],
-                "Advisor": e["advisor"],
-                "Action": e["action"],
-                "Request": e["request_prompt"],
-            }
-            for e in reversed(entries)
-        ],
-        use_container_width=True,
-    )
+    for e in reversed(entries):
+        with st.expander(f"{e['timestamp'][:16]}  —  **{e['client_name']}**  —  {e['request_prompt'][:60]}"):
+            col1, col2, col3 = st.columns(3)
+            col1.markdown(f"**Advisor:** {e['advisor']}")
+            col2.markdown(f"**Request ID:** `{e['request_id']}`")
+            col3.markdown(f"**Audit ID:** `{e['audit_id']}`")
+            st.markdown(f"**Request:** {e['request_prompt']}")
+            if e.get("draft"):
+                st.divider()
+                st.markdown("**Approved draft:**")
+                st.text(e["draft"])
+            else:
+                st.caption("Draft text not available (approved before this feature was added).")
 
 
 def submit_delegation_request(client_id: str, request_prompt: str, advisor: str) -> dict:
@@ -256,13 +255,18 @@ def main():
                 "AI-generated draft. Review for accuracy, suitability and compliance "
                 "before it is approved or shared with the client."
             )
-            st.text_area("Draft document", value=req["draft"], height=320, key=f"draft_area_{req.get('revision_count', 0)}", disabled=True)
+            edited_draft = st.text_area("Draft document (editable — make changes before approving)", value=req["draft"], height=320, key=f"draft_area_{req.get('revision_count', 0)}")
+            if edited_draft != req["draft"]:
+                st.session_state.active_request["draft"] = edited_draft
+                st.caption("You have unsaved manual edits. These will be included when you approve.")
 
             colA, colB, colC = st.columns(3)
             with colA:
                 if st.button("Approve & log to audit", type="primary"):
                     try:
                         approval = approve_and_execute(req["request_id"], advisor_name)
+                        if edited_draft != req.get("_original_draft", req["draft"]):
+                            approval["audit_entry"]["manually_edited"] = True
                         st.session_state.just_approved = approval
                         st.session_state.active_request = None
                         st.rerun()
