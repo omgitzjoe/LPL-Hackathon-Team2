@@ -66,7 +66,7 @@ def get_request(request_id: str) -> dict | None:
         return _requests.get(request_id)
 
 
-def approve_request(request_id: str, advisor: str) -> dict | None:
+def approve_request(request_id: str, advisor: str, edited_draft: str | None = None) -> dict | None:
     """Mark a request APPROVED and append an immutable audit log entry."""
     with _lock:
         record = _requests.get(request_id)
@@ -74,6 +74,10 @@ def approve_request(request_id: str, advisor: str) -> dict | None:
             return None
         record["status"] = "APPROVED"
         record["approved_at"] = _now()
+
+        if edited_draft is not None:
+            cleaned_draft = " ".join(edited_draft.replace("\r\n", "\n").split())
+            record["draft"] = cleaned_draft
 
         audit_entry = {
             "audit_id": f"AUD-{uuid.uuid4().hex[:8].upper()}",
@@ -83,6 +87,7 @@ def approve_request(request_id: str, advisor: str) -> dict | None:
             "advisor": advisor,
             "action": "APPROVE_AND_EXECUTE",
             "request_prompt": record["request_prompt"],
+            "final_draft": record["draft"],  
             "timestamp": record["approved_at"],
         }
         entries = _load_audit_log()

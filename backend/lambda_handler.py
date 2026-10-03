@@ -65,11 +65,12 @@ def approve_handler(payload: dict) -> dict:
     """
     request_id = payload.get("request_id")
     advisor = payload.get("advisor", "Unknown Advisor")
+    edited_draft = payload.get("edited_draft")  
 
     if not request_id:
         raise HandlerError(400, "request_id is required")
 
-    result = state_store.approve_request(request_id, advisor)
+    result = state_store.approve_request(request_id, advisor, edited_draft=edited_draft)
     if result is None:
         raise HandlerError(404, f"No request found for request_id={request_id}")
 

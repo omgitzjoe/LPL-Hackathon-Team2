@@ -41,15 +41,14 @@ def submit_delegation_request(client_id: str, request_prompt: str, advisor: str)
     return resp.json()
 
 
-def approve_and_execute(request_id: str, advisor: str) -> dict:
+def approve_and_execute(request_id: str, advisor: str, edited_draft: str) -> dict:
     resp = requests.post(
         f"{BACKEND_URL}/approve",
-        json={"request_id": request_id, "advisor": advisor},
+        json={"request_id": request_id, "advisor": advisor, "edited_draft": edited_draft},
         timeout=30,
     )
     resp.raise_for_status()
     return resp.json()
-
 
 def main():
     st.title("👔 LPL Delegation Assistant")
@@ -122,7 +121,8 @@ def main():
             with colA:
                 if st.button("✅ Approve & Execute", type="primary"):
                     try:
-                        approval = approve_and_execute(req["request_id"], advisor_name)
+                        current_draft_text = st.session_state.get("draft_area", req["draft"])
+                        approval = approve_and_execute(req["request_id"], advisor_name, current_draft_text)
                         st.session_state.just_approved = approval
                         st.session_state.active_request = None
                     except requests.RequestException as e:
