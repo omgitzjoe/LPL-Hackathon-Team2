@@ -23,6 +23,8 @@ AUDIT_LOG_PATH = DATA_DIR / "audit_log.json"
 REQUESTS_TABLE = os.environ.get("DYNAMODB_REQUESTS_TABLE", "lpl-delegation-requests")
 AUDIT_TABLE = os.environ.get("DYNAMODB_AUDIT_TABLE", "lpl-audit-log")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+# "true" fails fast instead of silently using per-machine local storage.
+REQUIRE_SHARED_STORE = os.environ.get("REQUIRE_SHARED_STORE", "false").lower() == "true"
 
 _lock = threading.Lock()
 _requests: dict[str, dict] = {}
@@ -38,12 +40,32 @@ def _init_dynamo():
     try:
         import boto3
         _dynamo = boto3.resource("dynamodb", region_name=AWS_REGION)
-        # Use GetItem (always permitted) instead of DescribeTable to verify connectivity
+        # GetItem is always permitted, unlike DescribeTable.
         _dynamo.Table(REQUESTS_TABLE).get_item(Key={"request_id": "__ping__"})
+        _dynamo.Table(AUDIT_TABLE).scan(Limit=1)
         _use_dynamo = True
-    except Exception:
+    except Exception as e:
         _dynamo = None
         _use_dynamo = False
+        if REQUIRE_SHARED_STORE:
+            raise RuntimeError(f"DynamoDB is required but unavailable: {e}") from e
+
+
+def storage_mode() -> str:
+    """'dynamodb' = shared across all users; 'local' = this machine only."""
+    _init_dynamo()
+    return "dynamodb" if _use_dynamo else "local"
+
+
+def _scan_all(table) -> list[dict]:
+    items: list[dict] = []
+    kwargs: dict = {}
+    while True:
+        resp = table.scan(**kwargs)
+        items.extend(resp.get("Items", []))
+        if "LastEvaluatedKey" not in resp:
+            return items
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
 
 
 def _now() -> str:
@@ -230,9 +252,8 @@ def approve_request(request_id: str, advisor: str) -> dict | None:
 def list_audit_log() -> list[dict]:
     _init_dynamo()
     if _use_dynamo:
-        table = _dynamo.Table(AUDIT_TABLE)
-        resp = table.scan()
-        return [_restore_from_dynamo(i) for i in resp.get("Items", [])]
+        entries = [_restore_from_dynamo(i) for i in _scan_all(_dynamo.Table(AUDIT_TABLE))]
+        return sorted(entries, key=lambda e: e.get("timestamp") or "")
     else:
         with _lock:
             return _load_audit_log_file()
@@ -241,9 +262,7 @@ def list_audit_log() -> list[dict]:
 def list_requests() -> list[dict]:
     _init_dynamo()
     if _use_dynamo:
-        table = _dynamo.Table(REQUESTS_TABLE)
-        resp = table.scan()
-        return [_restore_from_dynamo(i) for i in resp.get("Items", [])]
+        return [_restore_from_dynamo(i) for i in _scan_all(_dynamo.Table(REQUESTS_TABLE))]
     else:
         with _lock:
             return list(_requests.values())

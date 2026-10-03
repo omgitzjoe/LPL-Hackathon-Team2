@@ -78,7 +78,49 @@ def fetch_clients():
 def fetch_audit_log():
     resp = requests.get(f"{BACKEND_URL}/audit-log", timeout=10)
     resp.raise_for_status()
-    return resp.json()["audit_log"]
+    body = resp.json()
+    return body["audit_log"], body.get("storage", "unknown")
+
+
+AUDIT_REFRESH_SECONDS = 5
+
+
+@st.fragment(run_every=AUDIT_REFRESH_SECONDS)
+def render_audit_log():
+    """Re-polls the backend on a timer so entries from other advisors appear live."""
+    try:
+        entries, storage = fetch_audit_log()
+    except requests.RequestException as e:
+        st.error(f"Could not reach backend at {BACKEND_URL}: {e}")
+        return
+
+    if storage == "dynamodb":
+        st.success(f"Shared audit trail (DynamoDB). Auto-refreshing every {AUDIT_REFRESH_SECONDS}s.")
+    else:
+        st.warning(
+            "Local-only audit trail. This backend cannot reach DynamoDB, so you will not see other "
+            "advisors' entries. Set AWS credentials and AWS_REGION, then restart the backend."
+        )
+
+    if not entries:
+        st.caption("No approved actions yet. Approve a draft to see it logged here.")
+        return
+
+    st.metric("Approved actions", len(entries))
+    st.dataframe(
+        [
+            {
+                "Timestamp": e["timestamp"],
+                "Request ID": e["request_id"],
+                "Client": e["client_name"],
+                "Advisor": e["advisor"],
+                "Action": e["action"],
+                "Request": e["request_prompt"],
+            }
+            for e in reversed(entries)
+        ],
+        use_container_width=True,
+    )
 
 
 def submit_delegation_request(client_id: str, request_prompt: str, advisor: str) -> dict:
@@ -265,30 +307,7 @@ def main():
     with tab_audit:
         st.subheader("Audit & supervision trail")
         st.caption("Every advisor approval is recorded for supervisory review and books-and-records requirements.")
-        try:
-            entries = fetch_audit_log()
-        except requests.RequestException as e:
-            st.error(f"Could not reach backend at {BACKEND_URL}: {e}")
-            return
-
-        if not entries:
-            st.caption("No approved actions yet. Approve a draft to see it logged here.")
-        else:
-            st.metric("Approved actions", len(entries))
-            st.dataframe(
-                [
-                    {
-                        "Timestamp": e["timestamp"],
-                        "Request ID": e["request_id"],
-                        "Client": e["client_name"],
-                        "Advisor": e["advisor"],
-                        "Action": e["action"],
-                        "Request": e["request_prompt"],
-                    }
-                    for e in reversed(entries)
-                ],
-                use_container_width=True,
-            )
+        render_audit_log()
 
     st.markdown(
         '<div class="lpl-disclosure">Hackathon prototype using simulated client data. Not an official '

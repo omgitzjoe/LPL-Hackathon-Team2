@@ -126,4 +126,4 @@ def get_client_handler(client_id: str) -> dict:
 
 
 def list_audit_log_handler() -> dict:
-    return {"audit_log": state_store.list_audit_log()}
+    return {"audit_log": state_store.list_audit_log(), "storage": state_store.storage_mode()}
