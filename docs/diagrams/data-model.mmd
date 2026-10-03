@@ -1,0 +1,49 @@
+erDiagram
+  REQUEST ||--o{ AUDIT_ENTRY : "is recorded by"
+  AUDIT_ENTRY ||--o| AUDIT_HEAD : "latest one is pointed to by"
+  CLIENT ||--o{ REQUEST : "is the subject of"
+
+  REQUEST {
+    string request_id PK
+    string client_id
+    string client_name
+    string created_by
+    string created_by_role
+    string request_prompt
+    string draft
+    string ai_draft
+    string status
+    string created_at
+    int revision_count
+    string advisor_approved_by
+    string supervisor_id
+    string supervisor_comment
+  }
+
+  AUDIT_ENTRY {
+    string audit_id PK
+    int seq
+    string timestamp
+    string action
+    string request_id
+    string actor_id
+    string actor_role
+    bool compliance_passed
+    string final_draft_sha256
+    string diff_from_ai
+    string prev_hash
+    string entry_hash
+  }
+
+  AUDIT_HEAD {
+    string audit_id PK "constant __HEAD__"
+    int seq
+    string entry_hash
+  }
+
+  CLIENT {
+    string client_id PK
+    string name
+    string risk_profile
+    float portfolio_value
+  }

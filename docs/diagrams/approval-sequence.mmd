@@ -1,0 +1,41 @@
+sequenceDiagram
+  autonumber
+  actor Asst as Assistant
+  actor Adv as Advisor
+  actor Prin as Principal
+  participant UI as Streamlit UI
+  participant API as FastAPI backend
+  participant CE as Compliance engine
+  participant BR as Amazon Bedrock
+  participant ST as State store (DynamoDB)
+
+  Asst->>UI: Sign in, choose client and task
+  UI->>API: POST /generate-draft (token)
+  API->>BR: Prompt with client profile and guardrails
+  BR-->>API: AI draft
+  API->>ST: Create request PENDING_APPROVAL
+  API->>CE: Check draft
+  API->>ST: Append audit DRAFT_GENERATED
+  API-->>UI: Draft + compliance result
+  Asst->>UI: Edit and save
+  UI->>API: POST /save-draft
+
+  Adv->>UI: Review draft and findings
+  UI->>API: POST /advisor-approve
+  API->>CE: Re-check final text (server side)
+  alt blocking findings
+    API-->>UI: 422 with findings
+  else clean
+    API->>ST: Conditional update to PENDING_SUPERVISION
+    API->>ST: Append audit ADVISOR_APPROVED (hash, diff)
+    API-->>UI: Approved, sent to principal
+  end
+
+  Prin->>UI: Open supervision queue
+  UI->>API: POST /supervise (approve or reject)
+  API->>CE: Re-check final text
+  API->>ST: Conditional update to APPROVED or REJECTED
+  API->>ST: Append audit SUPERVISOR_APPROVED or SUPERVISOR_REJECTED
+  Prin->>UI: Audit tab
+  UI->>API: GET /audit-log/verify
+  API-->>UI: Chain intact or broken entries

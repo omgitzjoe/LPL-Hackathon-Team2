@@ -1,0 +1,19 @@
+flowchart LR
+  DEV["Developer"] -->|"git push main"| GH["GitHub repository"]
+  GH -->|"push event"| GA["GitHub Actions<br/>Deploy to EC2"]
+  GA -->|"1. find and terminate old instance<br/>2. launch new instance<br/>3. associate Elastic IP"| EC2
+
+  subgraph AWS["AWS account (us-east-1)"]
+    EC2["EC2 t3.medium<br/>Amazon Linux<br/>user-data: git clone, pip install, start.sh"]
+    IAM["IAM instance profile<br/>Bedrock + DynamoDB access"]
+    SG["Security group<br/>8080 open to users"]
+    DDB[("DynamoDB tables")]
+    BR["Amazon Bedrock"]
+  end
+
+  EC2 --- IAM
+  EC2 --- SG
+  EC2 --> DDB
+  EC2 --> BR
+  USER["Browser"] -->|"http://Elastic IP:8080"| SG
+  EC2 -.->|"git clone on boot"| GH

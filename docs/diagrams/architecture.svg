@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 640" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#003A70"/>
+    </marker>
+  </defs>
+  <rect width="1100" height="640" fill="#ffffff"/>
+  <text x="550" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#003A70">LPL Delegation Assistant — System Architecture</text>
+
+  <!-- Users -->
+  <rect x="20" y="90" width="150" height="150" rx="8" fill="#F2F6FA" stroke="#0073CF"/>
+  <text x="95" y="112" text-anchor="middle" font-weight="bold" fill="#003A70">People</text>
+  <rect x="35" y="125" width="120" height="30" rx="5" fill="#fff" stroke="#0073CF"/><text x="95" y="145" text-anchor="middle">Assistant</text>
+  <rect x="35" y="165" width="120" height="30" rx="5" fill="#fff" stroke="#0073CF"/><text x="95" y="185" text-anchor="middle">Advisor</text>
+  <rect x="35" y="205" width="120" height="30" rx="5" fill="#fff" stroke="#0073CF"/><text x="95" y="225" text-anchor="middle">Compliance Principal</text>
+
+  <!-- EC2 -->
+  <rect x="210" y="60" width="600" height="540" rx="10" fill="#FFFFFF" stroke="#003A70" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="225" y="82" font-weight="bold" fill="#003A70">Amazon EC2 instance (us-east-1)</text>
+
+  <rect x="235" y="110" width="200" height="70" rx="8" fill="#003A70"/>
+  <text x="335" y="138" text-anchor="middle" fill="#fff" font-weight="bold">Streamlit dashboard</text>
+  <text x="335" y="158" text-anchor="middle" fill="#fff">port 8080 · role-based tabs</text>
+
+  <rect x="235" y="230" width="200" height="70" rx="8" fill="#0073CF"/>
+  <text x="335" y="258" text-anchor="middle" fill="#fff" font-weight="bold">FastAPI backend</text>
+  <text x="335" y="278" text-anchor="middle" fill="#fff">port 8000 · bearer-token auth</text>
+
+  <rect x="470" y="100" width="320" height="480" rx="8" fill="#F2F6FA" stroke="#0073CF"/>
+  <text x="630" y="122" text-anchor="middle" font-weight="bold" fill="#003A70">backend package</text>
+  <g stroke="#0073CF" fill="#fff">
+    <rect x="490" y="135" width="280" height="50" rx="5"/>
+    <rect x="490" y="195" width="280" height="50" rx="5"/>
+    <rect x="490" y="255" width="280" height="50" rx="5"/>
+    <rect x="490" y="315" width="280" height="50" rx="5"/>
+    <rect x="490" y="375" width="280" height="50" rx="5"/>
+    <rect x="490" y="435" width="280" height="50" rx="5"/>
+    <rect x="490" y="495" width="280" height="50" rx="5"/>
+  </g>
+  <g fill="#003A70" text-anchor="middle">
+    <text x="630" y="157" font-weight="bold">lambda_handler</text><text x="630" y="175">roles · two-level workflow</text>
+    <text x="630" y="217" font-weight="bold">auth</text><text x="630" y="235">users · PBKDF2 · signed tokens</text>
+    <text x="630" y="277" font-weight="bold">compliance</text><text x="630" y="295">deterministic rule engine</text>
+    <text x="630" y="337" font-weight="bold">bedrock_client</text><text x="630" y="355">prompt · guardrails · mock mode</text>
+    <text x="630" y="397" font-weight="bold">state_store</text><text x="630" y="415">requests · audit log · transactions</text>
+    <text x="630" y="457" font-weight="bold">audit_chain</text><text x="630" y="475">SHA-256 chain · verify · diff</text>
+    <text x="630" y="517" font-weight="bold">mock_clients</text><text x="630" y="535">simulated CRM profiles</text>
+  </g>
+
+  <!-- External AWS -->
+  <rect x="860" y="130" width="220" height="90" rx="8" fill="#6CC24A"/>
+  <text x="970" y="165" text-anchor="middle" font-weight="bold" fill="#003A70">Amazon Bedrock</text>
+  <text x="970" y="187" text-anchor="middle" fill="#003A70">Claude Sonnet 4.5</text>
+
+  <rect x="860" y="340" width="220" height="120" rx="8" fill="#6CC24A"/>
+  <text x="970" y="372" text-anchor="middle" font-weight="bold" fill="#003A70">Amazon DynamoDB</text>
+  <text x="970" y="397" text-anchor="middle" fill="#003A70">lpl-delegation-requests</text>
+  <text x="970" y="417" text-anchor="middle" fill="#003A70">lpl-audit-log (+ __HEAD__)</text>
+  <text x="970" y="440" text-anchor="middle" fill="#003A70" font-size="11">shared by all users</text>
+
+  <rect x="860" y="500" width="220" height="80" rx="8" fill="#F2F6FA" stroke="#003A70"/>
+  <text x="970" y="530" text-anchor="middle" font-weight="bold" fill="#003A70">GitHub Actions</text>
+  <text x="970" y="552" text-anchor="middle" fill="#003A70" font-size="12">deploys on push to main</text>
+
+  <!-- Arrows -->
+  <g stroke="#003A70" stroke-width="1.8" fill="none" marker-end="url(#arrow)">
+    <path d="M 170 165 L 232 145"/>
+    <path d="M 335 180 L 335 228"/>
+    <path d="M 435 265 L 488 175"/>
+    <path d="M 770 345 L 858 175" />
+    <path d="M 770 400 L 858 400"/>
+    <path d="M 970 500 L 970 462" stroke-dasharray="5 4"/>
+  </g>
+  <text x="203" y="140" font-size="11" fill="#003A70">HTTP</text>
+  <text x="342" y="210" font-size="11" fill="#003A70">REST + token</text>
+  <text x="790" y="270" font-size="11" fill="#003A70">InvokeModel</text>
+  <text x="790" y="392" font-size="11" fill="#003A70">read / write</text>
+  <text x="978" y="485" font-size="11" fill="#003A70">terminates and rebuilds EC2</text>
+
+  <text x="550" y="625" text-anchor="middle" font-size="11" fill="#5b6b7b">Source of truth for diagrams: docs/diagrams/*.mmd (Mermaid). Prototype using simulated client data.</text>
+</svg>

@@ -1,0 +1,18 @@
+flowchart LR
+  G["GENESIS"] --> E1
+  subgraph E1["Entry seq 1"]
+    A1["action, actor, request,<br/>compliance, hashes"]
+    H1["prev_hash = GENESIS<br/>entry_hash = SHA-256(entry)"]
+  end
+  E1 -->|"entry_hash"| E2
+  subgraph E2["Entry seq 2"]
+    A2["action, actor, request,<br/>compliance, hashes"]
+    H2["prev_hash = hash of seq 1<br/>entry_hash = SHA-256(entry)"]
+  end
+  E2 -->|"entry_hash"| E3
+  subgraph E3["Entry seq 3"]
+    A3["..."]
+    H3["prev_hash = hash of seq 2<br/>entry_hash = SHA-256(entry)"]
+  end
+  E3 -.->|"latest seq + hash stored in"| HEAD["__HEAD__ item<br/>(updated in the same transaction)"]
+  V["GET /audit-log/verify"] -.->|"recomputes every hash,<br/>checks links, sequence and head"| E1

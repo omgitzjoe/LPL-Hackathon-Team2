@@ -16,8 +16,8 @@ Steps:
 
 The official team instance is **<http://98.89.13.40:8080>**.
 
-Each deploy replaces the instance, so its public IP can change. Update the link in the
-root README if it does.
+Each deploy replaces the instance, but the permanent Elastic IP is re-attached, so the
+address stays the same. The site is unavailable for a few minutes during a deploy.
 
 ## Notes
 

@@ -249,6 +249,7 @@ For typical hackathon usage (dozens of draft generations):
 
 ## 📚 Documentation
 
+- **[docs/](docs/README.md)** — Architecture diagrams and technical documentation (architecture, workflow and roles, API reference, data model, security, operations, development guide)
 - **[QUICKSTART.md](QUICKSTART.md)** — Detailed setup instructions
 - **[AWS_SETUP.md](AWS_SETUP.md)** — Enabling Bedrock model access & IAM permissions
 - **[CLAUDE.md](CLAUDE.md)** — Developer guide for Claude Code

@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> PENDING_APPROVAL: assistant or advisor generates draft
+  PENDING_APPROVAL --> PENDING_APPROVAL: edit, save, or AI revision
+  PENDING_APPROVAL --> PENDING_SUPERVISION: advisor approves (no blocking findings)
+  PENDING_SUPERVISION --> APPROVED: principal approves (no blocking findings)
+  PENDING_SUPERVISION --> REJECTED: principal rejects (comment required)
+  REJECTED --> PENDING_APPROVAL: edit, save, or AI revision
+  APPROVED --> [*]

@@ -1,0 +1,37 @@
+flowchart LR
+  subgraph Users["People"]
+    A["Assistant"]
+    V["Advisor"]
+    P["Compliance Principal"]
+  end
+
+  subgraph EC2["Amazon EC2 instance"]
+    UI["Streamlit dashboard :8080"]
+    API["FastAPI backend :8000<br/>bearer-token auth"]
+    subgraph Core["backend package"]
+      H["lambda_handler<br/>roles + two-level workflow"]
+      C["compliance<br/>deterministic rules"]
+      AU["auth<br/>users, roles, tokens"]
+      S["state_store<br/>requests + audit log"]
+      AC["audit_chain<br/>hash chain + diff"]
+      BC["bedrock_client<br/>prompt + guardrails"]
+      MC["mock_clients<br/>simulated CRM"]
+    end
+  end
+
+  BR["Amazon Bedrock<br/>Claude Sonnet 4.5"]
+  DDB[("Amazon DynamoDB<br/>lpl-delegation-requests<br/>lpl-audit-log")]
+
+  A --> UI
+  V --> UI
+  P --> UI
+  UI -->|"HTTP + Bearer token"| API
+  API --> H
+  H --> AU
+  H --> C
+  H --> MC
+  H --> BC
+  H --> S
+  S --> AC
+  S -->|"conditional writes<br/>transactional audit append"| DDB
+  BC -->|"InvokeModel"| BR
