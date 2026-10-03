@@ -1,40 +1,31 @@
 # frontend/ — Advisor Dashboard
 
-Streamlit app that gives advisors a single place to delegate drafting, review AI
-output and see the audit trail. It holds no business logic: every action is a call
-to the backend over HTTP.
+Streamlit app for sign-in, drafting, review queues and the audit trail. It holds no
+business rules: roles, compliance checks and audit hashing are enforced by the backend.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `app.py` | The whole dashboard (page layout, API calls, audit tab) |
+| `app.py` | The whole dashboard |
 
-## Screens
+## Screens by role
 
-- **Delegate a Task**
-  1. Choose a client and a task type (portfolio review, rebalancing, retirement
-     income, meeting prep or a custom request).
-  2. **Generate draft** calls the backend and the draft appears for review.
-  3. The advisor can edit the draft by hand, **Request revision** (AI re-drafts from
-     feedback), **Discard**, or **Approve & log to audit**.
-- **Audit & Supervision Log**
-  - Shows every approved action. The view re-polls the backend every 5 seconds
-    (`@st.fragment(run_every=...)`), so entries from other advisors appear live.
-  - A banner shows the storage mode: green means the shared DynamoDB trail, orange
-    means this backend is using local-only storage.
-- **Sidebar:** advisor name, a short "how it works" and compliance reminders
-  (no performance guarantees, FINRA 2210, Reg BI).
-
-## Backend calls
-
-| Function | Endpoint |
+| Role | Tabs |
 |---|---|
-| `fetch_clients()` | `GET /clients` |
-| `submit_delegation_request()` | `POST /generate-draft` |
-| `request_revision()` | `POST /revise-draft` |
-| `approve_and_execute()` | `POST /approve` |
-| `fetch_audit_log()` | `GET /audit-log` (returns `audit_log` and `storage`) |
+| Assistant | Delegate a Task, My Drafts, Audit & Supervision Log |
+| Advisor | Delegate a Task, Advisor Review Queue, Audit & Supervision Log |
+| Compliance Principal | Supervision Queue, Audit & Supervision Log |
+
+- **Review panel:** editable draft (assistant and advisor), live compliance results with
+  blocking and warning findings, and a diff against the AI draft. Approval buttons stay
+  disabled while blocking findings exist.
+- **Advisor:** "Approve and send to compliance principal".
+- **Principal:** "Approve for release" or "Reject and return" (a comment is required to reject).
+- **Audit & Supervision Log:** refreshes every 5 seconds. Each event shows the user, role,
+  compliance result, hashes and human edits. Principals also see a record-integrity banner
+  (hash chain verification) and can download the records as JSON (with verification) or CSV.
+  A banner shows whether the trail is the shared DynamoDB one or local-only.
 
 ## Configuration
 
@@ -49,9 +40,10 @@ to the backend over HTTP.
 BACKEND_URL=http://localhost:8000 streamlit run frontend/app.py --server.port 8080
 ```
 
-Requires Streamlit 1.37 or newer (the live-refreshing audit view uses fragments).
+Requires Streamlit 1.37 or newer. Use `streamlit run`, not `python frontend/app.py`.
+Restart Streamlit after replacing `app.py` on disk, as it can keep serving the old script.
 
-## Notes
+## Sign-in
 
-- Use `streamlit run`, not `python frontend/app.py`.
-- The audit tab refreshes only while a browser tab is open on it.
+In demo mode the login page lists the demo users (`assistant1`, `advisor1`, `advisor2`,
+`principal1`). See [backend/README.md](../backend/README.md) to configure real users.

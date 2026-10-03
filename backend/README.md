@@ -1,56 +1,112 @@
-# backend/ — API, Bedrock client and state store
+# backend/ — API, compliance engine, supervision workflow and audit store
 
-Python package that implements the "mock gate" from the architecture diagram.
-The same handler functions run behind a local FastAPI server or inside AWS Lambda.
+Python package behind the dashboard. The same handlers run behind a local FastAPI
+server or, with some work (see `infra/`), inside AWS Lambda.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
-| `server.py` | FastAPI app: routes and request models. Local stand-in for the Lambda Function URL |
-| `lambda_handler.py` | Framework-agnostic handler functions (business logic). Raises `HandlerError` with an HTTP status |
-| `bedrock_client.py` | `BedrockDraftGenerator`: builds the prompt, applies compliance guardrails and calls Amazon Bedrock. Has a mock mode |
-| `mock_clients.py` | Hardcoded client profiles (14 simulated clients). Stands in for a CRM or portfolio API |
-| `state_store.py` | Request state (`PENDING_APPROVAL` → `APPROVED`) and the append-only audit log |
-| `__init__.py` | Marks the package |
+| `server.py` | FastAPI routes, request models and bearer-token authentication |
+| `lambda_handler.py` | Framework-agnostic business logic: drafting, role checks, two-level approval |
+| `compliance.py` | Deterministic compliance rules run on every draft |
+| `auth.py` | Users, roles, password hashing and signed session tokens |
+| `audit_chain.py` | Hash chaining, verification and text diffs for audit records |
+| `state_store.py` | Request state and the audit log (DynamoDB or local fallback) |
+| `bedrock_client.py` | Amazon Bedrock wrapper (with an offline mock mode) |
+| `mock_clients.py` | Simulated client profiles standing in for a CRM |
+
+## Two-level supervision workflow
+
+```
+PENDING_APPROVAL --advisor approves--> PENDING_SUPERVISION --principal approves--> APPROVED
+       ^                                        |
+       +---- edit / AI revision <--- REJECTED <-+--principal rejects (comment required)
+```
+
+| Role | Can do |
+|---|---|
+| `assistant` | Create drafts, edit, request AI revisions, see their own drafts |
+| `advisor` | Everything an assistant can, plus level-1 approval of the final text |
+| `principal` | Level-2 approval or rejection, verify the audit chain |
+
+Rules enforced by the server:
+- Identity comes from the signed token, never from the request body.
+- A draft with any **blocking** compliance finding cannot be approved at either level.
+- A principal cannot supervise a request they created or advisor-approved.
+- State changes are atomic (conditional updates), so two people cannot approve the same request.
+
+## Deterministic compliance checks (`compliance.py`)
+
+Run on generation, on every revision, on every edit check and again on the final text at approval.
+
+| Rule | Severity | Basis |
+|---|---|---|
+| Guaranteed, risk-free or absolute claims (negations such as "does not guarantee" are allowed) | block | FINRA 2210(d)(1)(B) |
+| Missing `DRAFT` marker | block | Internal policy |
+| Missing informational-purposes disclosure | block | FINRA 2210 |
+| Missing past-performance disclosure | block | FINRA 2210 |
+| No suitability statement (risk profile and goals) | block | Reg BI |
+| Placeholder text (`[Advisor Name]`, `TBD`) | block | Internal policy |
+| Possible Social Security number | block | Reg S-P |
+| "Will earn/outperform", performance projections, superlatives | warn | FINRA 2210 |
+| Long digit strings (possible account numbers), client name missing | warn | Reg S-P / internal |
+
+These rules support supervisory review and are not legal advice. Edit `compliance.py` and bump `RULESET_VERSION` to change them; the version is recorded in every audit entry.
+
+## Defensible records (`audit_chain.py`)
+
+Every event (draft generated, AI revision, advisor approval, principal approval or rejection) is one audit entry containing:
+- the real `actor_id`, `actor_name` and `actor_role`
+- the request, client and task
+- SHA-256 fingerprints of the AI draft and the final text, a line diff of human edits, and the final text itself at approval
+- the compliance result and ruleset version
+- `seq`, `prev_hash` and `entry_hash`, forming a hash chain
+
+`GET /audit-log/verify` recomputes the chain and detects modified, deleted, re-ordered or truncated entries. In DynamoDB each entry and a `__HEAD__` pointer are written in one transaction conditioned on the previous sequence number, so concurrent writers cannot fork the chain.
+
+This is **tamper-evident**, not tamper-proof. For regulatory retention also write to immutable storage (for example S3 Object Lock) and restrict delete permissions on the table. Entries written before hashing existed are shown as "legacy" and are not covered by verification.
 
 ## API
 
-| Method and path | Handler | Purpose |
+All routes except `/health`, `/auth/info` and `/auth/login` need `Authorization: Bearer <token>`.
+
+| Method and path | Roles | Purpose |
 |---|---|---|
-| `GET /health` | `server.health` | Liveness check |
-| `GET /clients` | `list_clients_handler` | Client summaries (id, name, risk profile) |
-| `GET /clients/{client_id}` | `get_client_handler` | Full client profile |
-| `POST /generate-draft` | `generate_draft_handler` | Create a draft and save it as `PENDING_APPROVAL` |
-| `POST /revise-draft` | `revise_draft_handler` | Re-draft from advisor feedback |
-| `POST /approve` | `approve_handler` | Mark `APPROVED` and write the audit entry |
-| `GET /audit-log` | `list_audit_log_handler` | All audit entries plus `storage` (`dynamodb` or `local`) |
-
-## Storage (`state_store.py`)
-
-- **DynamoDB (shared):** tables `lpl-delegation-requests` (key `request_id`) and
-  `lpl-audit-log` (key `audit_id`). Used when both tables are reachable.
-- **Local fallback:** requests in memory, audit log in `data/audit_log.json`. Entries
-  are visible only on that machine.
-- `storage_mode()` reports which one is active, and `/audit-log` returns it.
-- An audit entry contains `audit_id`, `request_id`, `client_id`, `client_name`,
-  `advisor`, `action`, `request_prompt`, `draft` and `timestamp`.
+| `POST /auth/login` | public | Exchange user ID and password for a token |
+| `GET /auth/info`, `GET /auth/me` | public / any | Demo-mode flag / current user |
+| `GET /clients`, `GET /clients/{id}` | any | Client data |
+| `POST /compliance/check` | any | Run the rules on text |
+| `POST /generate-draft` | assistant, advisor | Create a draft |
+| `POST /revise-draft` | assistant, advisor | AI revision from feedback |
+| `POST /save-draft` | assistant, advisor | Save human edits |
+| `POST /advisor-approve` | advisor | Level-1 approval |
+| `POST /supervise` | principal | Level-2 `approve` or `reject` |
+| `GET /requests`, `GET /requests/{id}` | any | Queue and request detail |
+| `GET /audit-log` | any | Audit entries and storage mode |
+| `GET /audit-log/verify` | principal | Verify the hash chain |
 
 ## Configuration
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BEDROCK_MOCK_MODE` | `true` | `true` returns offline placeholder drafts, `false` calls Bedrock |
-| `BEDROCK_MODEL_ID` | `us.anthropic.claude-sonnet-4-5-20250929-v1:0` | Bedrock model or inference profile |
+| `LPL_USERS` | demo users | `id:password:role:Display Name;...` replaces the built-in demo users |
+| `LPL_DEMO_PASSWORD` | `lpl-demo` | Password for the built-in demo users |
+| `AUTH_SECRET` | random per start | Key that signs session tokens |
+| `AUTH_TOKEN_TTL_HOURS` | `8` | Session lifetime |
+| `BEDROCK_MOCK_MODE` | `true` | `false` calls Amazon Bedrock |
+| `BEDROCK_MODEL_ID` | Claude Sonnet 4.5 profile | Bedrock model or inference profile |
 | `AWS_REGION` | `us-east-1` | Region for Bedrock and DynamoDB |
-| `DYNAMODB_REQUESTS_TABLE` | `lpl-delegation-requests` | Requests table name |
-| `DYNAMODB_AUDIT_TABLE` | `lpl-audit-log` | Audit table name |
-| `REQUIRE_SHARED_STORE` | `false` | `true` fails fast instead of using local storage |
+| `DYNAMODB_REQUESTS_TABLE` | `lpl-delegation-requests` | Key `request_id` |
+| `DYNAMODB_AUDIT_TABLE` | `lpl-audit-log` | Key `audit_id` |
+| `REQUIRE_SHARED_STORE` | `false` | `true` fails instead of using local storage |
+
+Built-in demo users (`assistant1`, `advisor1`, `advisor2`, `principal1`) exist so the prototype can be tried at once. **Set `LPL_USERS` before using the app beyond a demo**, or replace this with an identity provider such as Amazon Cognito. Passwords are stored as salted PBKDF2 hashes, failed logins are rate-limited per user, and tokens are HMAC-signed. Tokens reset when the backend restarts unless `AUTH_SECRET` is set.
 
 ## Run
 
 ```bash
-# local, no AWS needed (mock drafts, local audit file)
+# local: mock drafts, local audit file, demo users
 uvicorn backend.server:app --reload --port 8000
 
 # real Bedrock and shared DynamoDB
@@ -58,11 +114,16 @@ BEDROCK_MOCK_MODE=false AWS_REGION=us-east-1 REQUIRE_SHARED_STORE=true \
   uvicorn backend.server:app --port 8000
 ```
 
-AWS credentials come from the standard boto3 chain (environment variables, a
-profile in `AWS_PROFILE`, or an instance role). Credentials created with
-`aws login` also need `pip install "botocore[crt]"`.
+AWS credentials come from the usual boto3 chain. Credentials created with `aws login` also need `pip install "botocore[crt]"`.
 
 ## Permissions needed
 
-`bedrock:InvokeModel` and DynamoDB `GetItem`, `PutItem`, `UpdateItem` and `Scan` on the
-two tables.
+`bedrock:InvokeModel`, and DynamoDB `GetItem`, `PutItem`, `UpdateItem` and `Scan` on both tables (the audit transaction uses `PutItem`).
+
+## Tests
+
+```bash
+python -m unittest discover -s tests -t .
+```
+
+Covers the compliance rules, the hash chain (tampering, gaps, truncation), authentication, role enforcement and the full two-level flow.

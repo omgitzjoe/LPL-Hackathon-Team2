@@ -36,6 +36,14 @@ registered advisor.
 | `data/` | Local fallback storage for the audit log | [data/README.md](data/README.md) |
 | `.github/` | CI/CD pipeline that deploys to EC2 | [.github/README.md](.github/README.md) |
 
+### Compliance and supervision features
+
+- **Deterministic compliance checks** run on every draft and again on the final text. Any blocking finding (guaranteed-return language, missing disclosures, no suitability statement, placeholders, SSNs) prevents approval.
+- **Two-level supervision with sign-in:** assistants and advisors draft, an advisor approves, then a compliance principal approves or returns the document. Roles are enforced by the server.
+- **Defensible records:** every event is logged with the real user ID, the compliance result, document fingerprints and the human edits, in a hash chain that principals can verify and export.
+- **Demo sign-in:** `assistant1`, `advisor1`, `advisor2` and `principal1` (password `lpl-demo`). These are prototype accounts only; set `LPL_USERS` for anything beyond a demo (see [backend/README.md](backend/README.md)).
+- **Tests:** `python -m unittest discover -s tests -t .`
+
 ---
 
 ## 🎯 What It Does

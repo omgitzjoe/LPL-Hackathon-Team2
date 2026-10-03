@@ -38,6 +38,9 @@ BACKEND_URL=https://<id>.lambda-url.us-east-1.on.aws streamlit run frontend/app.
 
 - This path is **not** what the live site uses. The live app runs on EC2 through
   [`.github/workflows/deploy.yml`](../.github/README.md).
+- The handlers now require a signed-in user (roles and two-level approval). This Lambda
+  entrypoint does not authenticate callers yet, so protected routes return 401 until
+  token handling is added.
 - The template does not create DynamoDB tables or grant access to them. To use the
   shared audit trail from Lambda, add the tables and a DynamoDB policy.
 - The Function URL is created with `AuthType: NONE` and open CORS. Add authentication
