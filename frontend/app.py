@@ -214,7 +214,7 @@ def main():
                 "AI-generated draft. Review for accuracy, suitability and compliance "
                 "before it is approved or shared with the client."
             )
-            st.text_area("Draft document", value=req["draft"], height=320, key="draft_area")
+            st.text_area("Draft document", value=req["draft"], height=320, key=f"draft_area_{req.get('revision_count', 0)}")
 
             colA, colB, colC = st.columns(3)
             with colA:
