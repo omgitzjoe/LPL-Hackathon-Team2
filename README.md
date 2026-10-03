@@ -2,7 +2,39 @@
 
 **AI-assisted drafting with human-in-the-loop approval, for LPL Financial advisors**
 
-Built for the AWS Financial Services Hackathon using Amazon Bedrock (Claude 3.5 Sonnet).
+Built for the AWS Financial Services Hackathon using Amazon Bedrock (Claude Sonnet 4.5).
+
+🌐 **Live app (official team instance):** <http://98.89.13.40:8080>
+*(plain HTTP; if your browser switches to `https://`, retype `http://`)*
+
+---
+
+## 📌 About This Project
+
+Financial advisors spend a large share of their day on client paperwork: portfolio
+reviews, rebalancing memos, retirement-income summaries and meeting prep. This
+project lets an advisor **delegate that drafting to an AI assistant while keeping
+full control and a complete compliance trail**.
+
+- **Delegate:** pick a client and a task (or type a custom request).
+- **Draft:** the assistant combines the client's profile with LPL-style compliance
+  guardrails and generates a draft through Amazon Bedrock.
+- **Review:** the advisor reads the draft, edits it by hand, or asks the AI for a revision.
+- **Approve:** only an explicit **Approve & log to audit** releases the document, and
+  the approval is written to a shared audit and supervision trail that every advisor
+  can see and that refreshes live.
+
+Client data in this prototype is **simulated** (14 mock profiles). It is not an
+official LPL Financial product, and AI output must always be reviewed by a
+registered advisor.
+
+| Module | Purpose | Docs |
+|---|---|---|
+| `frontend/` | Streamlit advisor dashboard | [frontend/README.md](frontend/README.md) |
+| `backend/` | FastAPI "mock gate", Bedrock client, state and audit store | [backend/README.md](backend/README.md) |
+| `infra/` | Lambda + SAM deployment option | [infra/README.md](infra/README.md) |
+| `data/` | Local fallback storage for the audit log | [data/README.md](data/README.md) |
+| `.github/` | CI/CD pipeline that deploys to EC2 | [.github/README.md](.github/README.md) |
 
 ---
 
@@ -12,7 +44,7 @@ An advisor (or their assistant) delegates a drafting task in plain language —
 *"Draft a portfolio review for Jane Doe"* — and the system:
 
 1. Looks up the client's profile and holdings
-2. Generates a compliant draft document via Amazon Bedrock (Claude 3.5 Sonnet)
+2. Generates a compliant draft document via Amazon Bedrock (Claude Sonnet 4.5)
 3. Holds the draft in a **`PENDING_APPROVAL`** state
 4. Shows the draft to the advisor for review
 5. On **Approve & Execute**, logs the action to an audit trail
@@ -40,7 +72,7 @@ No draft is ever sent to a client without an advisor explicitly approving it.
          │ 3. Fetches mock LPL client profile data from hardcoded dictionary
          ▼
 ┌────────────────────────────────────────────────────────┐
-│ 🧠 Amazon Bedrock (Claude 3.5 Sonnet)                   │
+│ 🧠 Amazon Bedrock (Claude Sonnet 4.5)                   │
 └────────┬───────────────────────────────────────────────┘
          │ 4. Generates the draft document & applies LPL compliance guardrails
          ▼
@@ -66,11 +98,12 @@ No draft is ever sent to a client without an advisor explicitly approving it.
 
 **Tech Stack:**
 
-- **LLM:** AWS Bedrock (Claude 3.5 Sonnet)
+- **LLM:** AWS Bedrock (Claude Sonnet 4.5)
 - **Mock Gate:** AWS Lambda (Function URL) — run locally as a FastAPI server for development
-- **Frontend:** Streamlit advisor dashboard
+- **Frontend:** Streamlit advisor dashboard (live-refreshing audit trail)
 - **Client data:** Hardcoded mock dictionary (stands in for LPL's CRM/portfolio APIs)
-- **State:** In-memory request store (`PENDING_APPROVAL` → `APPROVED`) + append-only audit log (JSON)
+- **State:** Amazon DynamoDB (`PENDING_APPROVAL` → `APPROVED`) plus an append-only audit log; falls back to local storage when DynamoDB is unreachable
+- **Deployment:** GitHub Actions to Amazon EC2 on every push to `main`
 
 ---
 
@@ -83,7 +116,7 @@ lpl-delegation-assistant/
 ├── backend/
 │   ├── server.py              # FastAPI app — local stand-in for the Lambda "Mock Gate"
 │   ├── lambda_handler.py      # Core handler logic (steps 3-5, 7-8), framework-agnostic
-│   ├── bedrock_client.py      # Bedrock Claude 3.5 Sonnet wrapper + compliance guardrails (step 4)
+│   ├── bedrock_client.py      # Bedrock Claude Sonnet 4.5 wrapper + compliance guardrails (step 4)
 │   ├── mock_clients.py        # Hardcoded LPL client profile dictionary (step 3)
 │   └── state_store.py         # PENDING_APPROVAL/APPROVED state + audit log (steps 5, 8)
 ├── infra/
@@ -122,12 +155,12 @@ offline drafts — no AWS credentials needed.
 ```bash
 streamlit run frontend/app.py
 ```
-Open **http://localhost:8501**.
+Open **http://localhost:8501** (or pass `--server.port 8080`).
 
 ### 4️⃣ Try the flow
 1. Pick a client, enter a request like *"Draft a portfolio review for Jane Doe"*
-2. Click **🚀 Submit for Draft** → draft appears (status `PENDING_APPROVAL`)
-3. Review the draft, click **✅ Approve & Execute**
+2. Click **Generate draft** → draft appears (status `PENDING_APPROVAL`)
+3. Review the draft, click **Approve & log to audit**
 4. See the **"Logged to Audit"** success screen
 5. Check the **📜 Audit Log** tab to see the recorded action
 
@@ -135,12 +168,12 @@ Open **http://localhost:8501**.
 
 ## 🧠 Using Real Amazon Bedrock
 
-1. Enable Claude 3.5 Sonnet model access (see [AWS_SETUP.md](AWS_SETUP.md))
+1. Enable Claude Sonnet 4.5 model access (see [AWS_SETUP.md](AWS_SETUP.md))
 2. Set environment variables before starting the backend:
    ```bash
    export BEDROCK_MOCK_MODE=false
    export AWS_REGION=us-east-1
-   export BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
+   export BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-5-20250929-v1:0
    uvicorn backend.server:app --reload --port 8000
    ```
 3. Ensure your AWS credentials have `bedrock:InvokeModel` permission:
@@ -186,7 +219,7 @@ Nothing is sent to a client without a human advisor explicitly clicking
 
 For typical hackathon usage (dozens of draft generations):
 
-- **Bedrock (Claude 3.5 Sonnet):** ~$3-5
+- **Bedrock (Claude Sonnet 4.5):** a few dollars at hackathon volumes
 - **Lambda Function URL:** Free tier covers hackathon usage
 
 **Total:** <$10 for 2 days
@@ -196,10 +229,10 @@ For typical hackathon usage (dozens of draft generations):
 ## 🚀 Post-Hackathon Roadmap
 
 - [ ] Replace mock client dictionary with real LPL CRM/portfolio API integration
-- [ ] Persist request/audit state in DynamoDB instead of in-memory + JSON
+- [x] Persist request/audit state in DynamoDB (done)
 - [ ] Add authentication (AWS Cognito) and per-advisor audit scoping
 - [ ] Support additional document types (quarterly updates, rebalance summaries, IPS updates)
-- [ ] Add a "Request Revision" loop (advisor edits → re-draft)
+- [x] "Request Revision" loop and manual draft editing (done)
 - [ ] React frontend option for a production-grade advisor dashboard
 - [ ] Immutable audit log (e.g., QLDB or S3 Object Lock) for regulatory requirements
 - [ ] Unit & integration tests

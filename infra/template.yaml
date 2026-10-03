@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   LPL Delegation Assistant - Lambda Function URL (Mock Gate) that fetches
-  mock client data, drafts documents via Amazon Bedrock (Claude 3.5 Sonnet),
+  mock client data, drafts documents via Amazon Bedrock (Claude Opus 4.1),
   and tracks PENDING_APPROVAL / APPROVED request state.
 
 Parameters:
@@ -12,7 +12,7 @@ Parameters:
     Description: Project name for resource naming
   BedrockModelId:
     Type: String
-    Default: anthropic.claude-3-5-sonnet-20241022-v2:0
+    Default: anthropic.claude-opus-4-1-20250805-v1:0
     Description: Bedrock model ID used to generate drafts
 
 Resources:

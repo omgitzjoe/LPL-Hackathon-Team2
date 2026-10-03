@@ -1,0 +1,117 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Find existing instance
+        id: find-instance
+        run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=LPL-Demo-Final" \
+                      "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text)
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "Found instance: $INSTANCE_ID"
+
+      - name: Terminate old instance
+        if: steps.find-instance.outputs.instance_id != 'None'
+        run: |
+          echo "Terminating old instance: ${{ steps.find-instance.outputs.instance_id }}"
+          aws ec2 terminate-instances --instance-ids ${{ steps.find-instance.outputs.instance_id }}
+          aws ec2 wait instance-terminated --instance-ids ${{ steps.find-instance.outputs.instance_id }}
+
+      - name: Get latest commit SHA
+        id: commit
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Create user data script
+        run: |
+          cat > /tmp/user-data.sh <<'EOF'
+          #!/bin/bash
+          exec > /var/log/user-data.log 2>&1
+          set -x
+          yum update -y
+          yum install -y git python3.11 python3.11-pip
+          cd /home/ec2-user
+          git clone https://github.com/omgitzjoe/LPL-Hackathon-Team2.git app
+          cd app
+          git checkout main
+          python3.11 -m pip install -r requirements.txt
+          chown -R ec2-user:ec2-user /home/ec2-user/app
+          sudo -u ec2-user bash -c 'cd /home/ec2-user/app && bash start.sh'
+          echo "DEPLOYMENT COMPLETE"
+          EOF
+          sed -i 's/^          //' /tmp/user-data.sh
+
+      - name: Launch new instance
+        id: launch
+        run: |
+          INSTANCE_ID=$(aws ec2 run-instances \
+            --image-id ami-0453ec754f44f9a4a \
+            --instance-type t3.medium \
+            --security-group-ids sg-0dd72a92e5600310f \
+            --iam-instance-profile Name=LPL-App-EC2-Profile \
+            --user-data file:///tmp/user-data.sh \
+            --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=LPL-Demo-Final},{Key=GitCommit,Value=${{ steps.commit.outputs.sha_short }}}]" \
+            --query 'Instances[0].InstanceId' \
+            --output text)
+
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "Launched instance: $INSTANCE_ID"
+
+          aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+
+          # Attach the permanent Elastic IP
+          aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id eipalloc-0902d44a203e5abda
+          PUBLIC_IP="98.89.13.40"
+
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+          echo "Public IP: $PUBLIC_IP (Elastic IP)"
+
+      - name: Wait for application startup
+        run: |
+          echo "Waiting 4 minutes for application to start..."
+          sleep 240
+
+          for i in {1..5}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ steps.launch.outputs.public_ip }}:8080)
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Application is responding!"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $HTTP_CODE - waiting 30s..."
+            sleep 30
+          done
+
+          echo "Application not responding after 5 attempts"
+          exit 1
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "================================================"
+          echo "DEPLOYMENT SUCCESSFUL"
+          echo "================================================"
+          echo "Instance ID: ${{ steps.launch.outputs.instance_id }}"
+          echo "Public URL: http://${{ steps.launch.outputs.public_ip }}:8080"
+          echo "Git Commit: ${{ steps.commit.outputs.sha_short }}"
+          echo "================================================"

@@ -18,8 +18,10 @@ from backend.lambda_handler import (
     HandlerError,
     approve_handler,
     generate_draft_handler,
+    get_client_handler,
     list_audit_log_handler,
     list_clients_handler,
+    revise_draft_handler,
 )
 
 app = FastAPI(title="LPL Delegation Mock Gate")
@@ -39,6 +41,11 @@ class GenerateDraftRequest(BaseModel):
     advisor: str = "Unknown Advisor"
 
 
+class ReviseDraftRequest(BaseModel):
+    request_id: str
+    feedback: str
+
+
 class ApproveRequest(BaseModel):
     request_id: str
     advisor: str = "Unknown Advisor"
@@ -47,7 +54,8 @@ class ApproveRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    from backend.state_store import _use_dynamo
+    return {"status": "ok", "dynamo": _use_dynamo}
 
 
 @app.get("/clients")
@@ -55,10 +63,26 @@ def clients():
     return list_clients_handler()
 
 
+@app.get("/clients/{client_id}")
+def client_detail(client_id: str):
+    try:
+        return get_client_handler(client_id)
+    except HandlerError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
 @app.post("/generate-draft")
 def generate_draft(req: GenerateDraftRequest):
     try:
         return generate_draft_handler(req.model_dump())
+    except HandlerError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@app.post("/revise-draft")
+def revise_draft(req: ReviseDraftRequest):
+    try:
+        return revise_draft_handler(req.model_dump())
     except HandlerError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 

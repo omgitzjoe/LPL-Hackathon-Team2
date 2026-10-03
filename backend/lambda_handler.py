@@ -39,7 +39,10 @@ def generate_draft_handler(payload: dict) -> dict:
     if client_profile is None:
         raise HandlerError(404, f"No mock client profile found for client_id={client_id}")
 
-    draft = _draft_generator.generate_draft(client_profile, request_prompt)
+    try:
+        draft = _draft_generator.generate_draft(client_profile, request_prompt)
+    except RuntimeError as e:
+        raise HandlerError(502, str(e))
 
     record = state_store.create_request(
         client_id=client_id,
@@ -58,6 +61,44 @@ def generate_draft_handler(payload: dict) -> dict:
     }
 
 
+def revise_draft_handler(payload: dict) -> dict:
+    """
+    Advisor requests a revision: re-invoke Bedrock with the original prompt
+    plus the advisor's feedback, then update the stored draft.
+    """
+    request_id = payload.get("request_id")
+    feedback = payload.get("feedback", "")
+
+    if not request_id or not feedback:
+        raise HandlerError(400, "request_id and feedback are required")
+
+    record = state_store.get_request(request_id)
+    if record is None:
+        raise HandlerError(404, f"No request found for request_id={request_id}")
+    if record["status"] != "PENDING_APPROVAL":
+        raise HandlerError(400, f"Request {request_id} is not in PENDING_APPROVAL state")
+
+    client_profile = mock_clients.get_client(record["client_id"])
+    if client_profile is None:
+        raise HandlerError(404, f"No client found for client_id={record['client_id']}")
+    try:
+        new_draft = _draft_generator.revise_draft(
+            client_profile, record["request_prompt"], record["draft"], feedback
+        )
+    except RuntimeError as e:
+        raise HandlerError(502, str(e))
+
+    updated = state_store.revise_request(request_id, new_draft, feedback)
+
+    return {
+        "request_id": request_id,
+        "status": updated["status"],
+        "client_name": updated["client_name"],
+        "draft": updated["draft"],
+        "revision_count": updated.get("revision_count", 1),
+    }
+
+
 def approve_handler(payload: dict) -> dict:
     """
     Step 7: Advisor reviews draft and clicks [APPROVE & EXECUTE].
@@ -72,7 +113,7 @@ def approve_handler(payload: dict) -> dict:
 
     result = state_store.approve_request(request_id, advisor, edited_draft=edited_draft)
     if result is None:
-        raise HandlerError(404, f"No request found for request_id={request_id}")
+        raise HandlerError(409, f"Request {request_id} not found or already approved")
 
     return {
         "status": "APPROVED",
@@ -86,5 +127,12 @@ def list_clients_handler() -> dict:
     return {"clients": mock_clients.list_clients()}
 
 
+def get_client_handler(client_id: str) -> dict:
+    client = mock_clients.get_client(client_id)
+    if client is None:
+        raise HandlerError(404, f"No client found for client_id={client_id}")
+    return {"client": client}
+
+
 def list_audit_log_handler() -> dict:
-    return {"audit_log": state_store.list_audit_log()}
+    return {"audit_log": state_store.list_audit_log(), "storage": state_store.storage_mode()}

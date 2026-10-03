@@ -4,7 +4,7 @@ uvicorn[standard]>=0.27.0
 pydantic>=2.6.0
 
 # Frontend
-streamlit>=1.31.0
+streamlit>=1.37.0
 requests>=2.31.0
 
 # AWS / Bedrock (only required when BEDROCK_MOCK_MODE=false)

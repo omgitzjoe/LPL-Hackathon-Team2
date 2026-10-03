@@ -2,7 +2,7 @@
 Bedrock client wrapper for draft generation.
 
 Diagram step 4: "Generates the draft document & applies LPL compliance
-guardrails" via Amazon Bedrock (Claude 3.5 Sonnet).
+guardrails" via Amazon Bedrock (Claude Sonnet 4.5).
 
 Supports a MOCK_MODE fallback (no AWS credentials required) so the rest of
 the delegation workflow can be demoed/developed without a deployed Bedrock
@@ -15,15 +15,18 @@ COMPLIANCE_SYSTEM_PROMPT = """You are an AI drafting assistant for LPL Financial
 You draft client-facing documents (portfolio reviews, account updates, summaries)
 that a human advisor will review, edit, and approve before anything is sent to a client.
 
+IMPORTANT: Follow the advisor's specific instructions closely. If they ask for a
+shorter draft, write concisely. If they specify a tone, focus area, or format,
+prioritize that. The advisor knows their client best.
+
 You MUST follow these LPL compliance guardrails in every draft:
 1. Never guarantee or imply guaranteed investment returns.
 2. Always include a brief suitability statement tying recommendations to the
    client's stated risk profile and goals.
-3. Include a standard disclosure: "This material is for informational purposes
-   only and does not constitute investment advice. Past performance is not
-   indicative of future results. Please consult your advisor before making any
-   changes to your portfolio."
-4. Keep tone professional, concise, and free of speculative or promissory language.
+3. Include a standard disclosure at the end: "This material is for informational
+   purposes only and does not constitute investment advice. Past performance is
+   not indicative of future results."
+4. Keep tone professional and free of speculative or promissory language.
 5. Clearly mark the document as a DRAFT pending advisor approval.
 
 Produce only the draft document text (no preamble, no meta-commentary).
@@ -33,7 +36,7 @@ Produce only the draft document text (no preamble, no meta-commentary).
 class Config:
     AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
     BEDROCK_MODEL_ID = os.environ.get(
-        "BEDROCK_MODEL_ID", "anthropic.claude-3-5-sonnet-20241022-v2:0"
+        "BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
     )
     MOCK_MODE = os.environ.get("BEDROCK_MOCK_MODE", "true").lower() in ("1", "true", "yes")
 
@@ -43,9 +46,7 @@ def _build_user_message(client_profile: dict, request_prompt: str) -> str:
         f"  - {h['symbol']} ({h['name']}): {h['allocation_pct']}%"
         for h in client_profile.get("holdings", [])
     )
-    return f"""Advisor request: {request_prompt}
-
-Client profile:
+    return f"""Client profile:
   Name: {client_profile['name']}
   Risk profile: {client_profile['risk_profile']}
   Portfolio value: ${client_profile['portfolio_value']:,.2f}
@@ -55,7 +56,9 @@ Client profile:
   Current holdings:
 {holdings}
 
-Draft the requested document now, following all compliance guardrails.
+ADVISOR REQUEST: {request_prompt}
+
+Follow the advisor's request exactly. Apply compliance guardrails but prioritize the advisor's specific instructions on format, length, tone, and content.
 """
 
 
@@ -89,7 +92,7 @@ advice. Past performance is not indicative of future results. Please consult you
 advisor before making any changes to your portfolio.
 
 [Generated in MOCK MODE — set BEDROCK_MOCK_MODE=false and configure AWS credentials
-to generate this draft with Amazon Bedrock Claude 3.5 Sonnet.]
+to generate this draft with Amazon Bedrock Claude Sonnet 4.5.]
 """
 
 
@@ -106,13 +109,24 @@ class BedrockDraftGenerator:
                 "bedrock-runtime", region_name=self.config.AWS_REGION
             )
 
+    def _invoke(self, body: dict) -> str:
+        try:
+            response = self._client.invoke_model(
+                modelId=self.config.BEDROCK_MODEL_ID,
+                body=json.dumps(body),
+            )
+            payload = json.loads(response["body"].read())
+            return payload["content"][0]["text"]
+        except Exception as e:
+            raise RuntimeError(f"Bedrock draft generation failed: {e}") from e
+
     def generate_draft(self, client_profile: dict, request_prompt: str) -> str:
         if self.config.MOCK_MODE or self._client is None:
             return _mock_draft(client_profile, request_prompt)
 
-        body = {
+        return self._invoke({
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 1024,
+            "max_tokens": 2048,
             "system": COMPLIANCE_SYSTEM_PROMPT,
             "messages": [
                 {
@@ -120,11 +134,28 @@ class BedrockDraftGenerator:
                     "content": _build_user_message(client_profile, request_prompt),
                 }
             ],
-        }
+        })
 
-        response = self._client.invoke_model(
-            modelId=self.config.BEDROCK_MODEL_ID,
-            body=json.dumps(body),
-        )
-        payload = json.loads(response["body"].read())
-        return payload["content"][0]["text"]
+    def revise_draft(self, client_profile: dict, request_prompt: str, previous_draft: str, feedback: str) -> str:
+        if self.config.MOCK_MODE or self._client is None:
+            return _mock_draft(client_profile, f"{request_prompt}\n\nAdvisor feedback: {feedback}")
+
+        return self._invoke({
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 2048,
+            "system": COMPLIANCE_SYSTEM_PROMPT,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": _build_user_message(client_profile, request_prompt),
+                },
+                {
+                    "role": "assistant",
+                    "content": previous_draft,
+                },
+                {
+                    "role": "user",
+                    "content": f"Please revise this draft based on my feedback:\n\n{feedback}",
+                },
+            ],
+        })
