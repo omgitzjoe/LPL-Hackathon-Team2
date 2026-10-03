@@ -49,6 +49,7 @@ class ReviseDraftRequest(BaseModel):
 class ApproveRequest(BaseModel):
     request_id: str
     advisor: str = "Unknown Advisor"
+    edited_draft: str | None = None
 
 
 @app.get("/health")
