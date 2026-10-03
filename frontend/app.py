@@ -305,7 +305,6 @@ def main():
 
         if st.session_state.just_approved:
             approval = st.session_state.just_approved
-            st.balloons()
             st.success("Approved and logged to the audit trail. The document is ready for client delivery.")
             with st.expander("Audit entry", expanded=True):
                 st.json(approval["audit_entry"])
