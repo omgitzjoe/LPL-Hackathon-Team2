@@ -10,6 +10,8 @@ would (see infra/lambda_function.py for the AWS deployment version), so the
 frontend talks to an identical contract whether running locally or against
 a deployed Lambda.
 """
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -49,7 +51,7 @@ class ReviseDraftRequest(BaseModel):
 class ApproveRequest(BaseModel):
     request_id: str
     advisor: str = "Unknown Advisor"
-    edited_draft: str | None = None
+    edited_draft: Optional[str] = None
 
 
 @app.get("/health")

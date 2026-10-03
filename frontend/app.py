@@ -132,6 +132,16 @@ def submit_delegation_request(client_id: str, request_prompt: str, advisor: str)
     return resp.json()
 
 
+def request_revision(request_id: str, feedback: str) -> dict:
+    resp = requests.post(
+        f"{BACKEND_URL}/revise-draft",
+        json={"request_id": request_id, "feedback": feedback},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
 def approve_and_execute(request_id: str, advisor: str, edited_draft: str) -> dict:
     resp = requests.post(
         f"{BACKEND_URL}/approve",
@@ -253,14 +263,7 @@ def main():
             with colA:
                 if st.button("Approve & log to audit", type="primary"):
                     try:
-<<<<<<< HEAD
-                        current_draft_text = st.session_state.get("draft_area", req["draft"])
-                        approval = approve_and_execute(req["request_id"], advisor_name, current_draft_text)
-=======
-                        approval = approve_and_execute(req["request_id"], advisor_name)
-                        if edited_draft != req.get("_original_draft", req["draft"]):
-                            approval["audit_entry"]["manually_edited"] = True
->>>>>>> b6810c0d67d051820d29654a1c4f45d6d8d63049
+                        approval = approve_and_execute(req["request_id"], advisor_name, edited_draft)
                         st.session_state.just_approved = approval
                         st.session_state.active_request = None
                         st.rerun()
