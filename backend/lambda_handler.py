@@ -76,13 +76,9 @@ def revise_draft_handler(payload: dict) -> dict:
         raise HandlerError(400, f"Request {request_id} is not in PENDING_APPROVAL state")
 
     client_profile = mock_clients.get_client(record["client_id"])
-    revision_prompt = (
-        f"{record['request_prompt']}\n\n"
-        f"--- Previous draft ---\n{record['draft']}\n\n"
-        f"--- Advisor feedback ---\n{feedback}\n\n"
-        f"Please revise the draft to address the advisor's feedback."
+    new_draft = _draft_generator.revise_draft(
+        client_profile, record["request_prompt"], record["draft"], feedback
     )
-    new_draft = _draft_generator.generate_draft(client_profile, revision_prompt)
 
     updated = state_store.revise_request(request_id, new_draft, feedback)
 
