@@ -8,6 +8,7 @@ sleep 2
 
 export PATH=$HOME/.local/bin:$PATH
 export BACKEND_URL=http://localhost:8000
+export BEDROCK_MOCK_MODE=false
 
 python3.11 -m uvicorn backend.server:app --host 0.0.0.0 --port 8000 &
 sleep 10

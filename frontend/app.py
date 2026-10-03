@@ -132,7 +132,7 @@ def main():
             """
             **How it works**
             1. Choose a client and a task
-            2. AI drafts the document via Amazon Bedrock (Claude Opus 4.1) using
+            2. AI drafts the document via Amazon Bedrock (Claude Sonnet 4.5) using
                client data and LPL compliance guardrails
             3. You review, request revisions, or approve
             4. Approval is recorded in the audit log

@@ -2,7 +2,7 @@
 Bedrock client wrapper for draft generation.
 
 Diagram step 4: "Generates the draft document & applies LPL compliance
-guardrails" via Amazon Bedrock (Claude Opus 4.1).
+guardrails" via Amazon Bedrock (Claude Sonnet 4.5).
 
 Supports a MOCK_MODE fallback (no AWS credentials required) so the rest of
 the delegation workflow can be demoed/developed without a deployed Bedrock
@@ -33,7 +33,7 @@ Produce only the draft document text (no preamble, no meta-commentary).
 class Config:
     AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
     BEDROCK_MODEL_ID = os.environ.get(
-        "BEDROCK_MODEL_ID", "anthropic.claude-opus-4-1-20250805-v1:0"
+        "BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
     )
     MOCK_MODE = os.environ.get("BEDROCK_MOCK_MODE", "true").lower() in ("1", "true", "yes")
 
@@ -89,7 +89,7 @@ advice. Past performance is not indicative of future results. Please consult you
 advisor before making any changes to your portfolio.
 
 [Generated in MOCK MODE — set BEDROCK_MOCK_MODE=false and configure AWS credentials
-to generate this draft with Amazon Bedrock Claude Opus 4.1.]
+to generate this draft with Amazon Bedrock Claude Sonnet 4.5.]
 """
 
 
