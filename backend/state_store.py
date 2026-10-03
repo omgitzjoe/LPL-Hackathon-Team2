@@ -200,6 +200,8 @@ def approve_request(request_id: str, advisor: str) -> dict | None:
         if not item:
             return None
         record = _restore_from_dynamo(item)
+        if record["status"] != "PENDING_APPROVAL":
+            return None
 
         table.update_item(
             Key={"request_id": request_id},
@@ -227,7 +229,7 @@ def approve_request(request_id: str, advisor: str) -> dict | None:
     else:
         with _lock:
             record = _requests.get(request_id)
-            if record is None:
+            if record is None or record["status"] != "PENDING_APPROVAL":
                 return None
             record["status"] = "APPROVED"
             record["approved_at"] = approved_at

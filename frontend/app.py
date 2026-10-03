@@ -256,7 +256,7 @@ def main():
                 "AI-generated draft. Review for accuracy, suitability and compliance "
                 "before it is approved or shared with the client."
             )
-            st.text_area("Draft document", value=req["draft"], height=320, key=f"draft_area_{req.get('revision_count', 0)}")
+            st.text_area("Draft document", value=req["draft"], height=320, key=f"draft_area_{req.get('revision_count', 0)}", disabled=True)
 
             colA, colB, colC = st.columns(3)
             with colA:
@@ -265,6 +265,7 @@ def main():
                         approval = approve_and_execute(req["request_id"], advisor_name)
                         st.session_state.just_approved = approval
                         st.session_state.active_request = None
+                        st.rerun()
                     except requests.RequestException as e:
                         st.error(f"Error approving request: {e}")
             with colB:
@@ -283,7 +284,7 @@ def main():
                     "What should be changed?",
                     placeholder="e.g. Use a more conservative tone, add a section on tax considerations, shorten the introduction...",
                     height=100,
-                    key="revision_feedback",
+                    key=f"revision_feedback_{req.get('revision_count', 0)}",
                 )
                 if st.button("Submit revision request", type="primary"):
                     if not feedback.strip():
@@ -300,9 +301,13 @@ def main():
 
         if st.session_state.just_approved:
             approval = st.session_state.just_approved
+            st.balloons()
             st.success("Approved and logged to the audit trail. The document is ready for client delivery.")
             with st.expander("Audit entry", expanded=True):
                 st.json(approval["audit_entry"])
+            if st.button("Start new request"):
+                st.session_state.just_approved = None
+                st.rerun()
 
     with tab_audit:
         st.subheader("Audit & supervision trail")

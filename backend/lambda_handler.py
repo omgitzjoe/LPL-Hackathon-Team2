@@ -39,7 +39,10 @@ def generate_draft_handler(payload: dict) -> dict:
     if client_profile is None:
         raise HandlerError(404, f"No mock client profile found for client_id={client_id}")
 
-    draft = _draft_generator.generate_draft(client_profile, request_prompt)
+    try:
+        draft = _draft_generator.generate_draft(client_profile, request_prompt)
+    except RuntimeError as e:
+        raise HandlerError(502, str(e))
 
     record = state_store.create_request(
         client_id=client_id,
@@ -76,9 +79,14 @@ def revise_draft_handler(payload: dict) -> dict:
         raise HandlerError(400, f"Request {request_id} is not in PENDING_APPROVAL state")
 
     client_profile = mock_clients.get_client(record["client_id"])
-    new_draft = _draft_generator.revise_draft(
-        client_profile, record["request_prompt"], record["draft"], feedback
-    )
+    if client_profile is None:
+        raise HandlerError(404, f"No client found for client_id={record['client_id']}")
+    try:
+        new_draft = _draft_generator.revise_draft(
+            client_profile, record["request_prompt"], record["draft"], feedback
+        )
+    except RuntimeError as e:
+        raise HandlerError(502, str(e))
 
     updated = state_store.revise_request(request_id, new_draft, feedback)
 
@@ -104,7 +112,7 @@ def approve_handler(payload: dict) -> dict:
 
     result = state_store.approve_request(request_id, advisor)
     if result is None:
-        raise HandlerError(404, f"No request found for request_id={request_id}")
+        raise HandlerError(409, f"Request {request_id} not found or already approved")
 
     return {
         "status": "APPROVED",

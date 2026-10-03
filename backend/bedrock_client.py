@@ -109,11 +109,22 @@ class BedrockDraftGenerator:
                 "bedrock-runtime", region_name=self.config.AWS_REGION
             )
 
+    def _invoke(self, body: dict) -> str:
+        try:
+            response = self._client.invoke_model(
+                modelId=self.config.BEDROCK_MODEL_ID,
+                body=json.dumps(body),
+            )
+            payload = json.loads(response["body"].read())
+            return payload["content"][0]["text"]
+        except Exception as e:
+            raise RuntimeError(f"Bedrock draft generation failed: {e}") from e
+
     def generate_draft(self, client_profile: dict, request_prompt: str) -> str:
         if self.config.MOCK_MODE or self._client is None:
             return _mock_draft(client_profile, request_prompt)
 
-        body = {
+        return self._invoke({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 2048,
             "system": COMPLIANCE_SYSTEM_PROMPT,
@@ -123,20 +134,13 @@ class BedrockDraftGenerator:
                     "content": _build_user_message(client_profile, request_prompt),
                 }
             ],
-        }
-
-        response = self._client.invoke_model(
-            modelId=self.config.BEDROCK_MODEL_ID,
-            body=json.dumps(body),
-        )
-        payload = json.loads(response["body"].read())
-        return payload["content"][0]["text"]
+        })
 
     def revise_draft(self, client_profile: dict, request_prompt: str, previous_draft: str, feedback: str) -> str:
         if self.config.MOCK_MODE or self._client is None:
             return _mock_draft(client_profile, f"{request_prompt}\n\nAdvisor feedback: {feedback}")
 
-        body = {
+        return self._invoke({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 2048,
             "system": COMPLIANCE_SYSTEM_PROMPT,
@@ -154,11 +158,4 @@ class BedrockDraftGenerator:
                     "content": f"Please revise this draft based on my feedback:\n\n{feedback}",
                 },
             ],
-        }
-
-        response = self._client.invoke_model(
-            modelId=self.config.BEDROCK_MODEL_ID,
-            body=json.dumps(body),
-        )
-        payload = json.loads(response["body"].read())
-        return payload["content"][0]["text"]
+        })
